@@ -11,8 +11,8 @@ public class test2 {
 	public static void main(String[] args) {
 		Logger L = Logger.getLogger("");
 
+		CA.setVerbose(false);
 		try(CA ca = new CA()) {
-			ca.setVerbose(false);
 
 			DoubleWrapper val;
 			

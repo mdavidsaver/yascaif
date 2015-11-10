@@ -8,8 +8,8 @@ public class test3 {
 
 	public static void main(String[] args) {
 		System.out.println("Starting");
+		CA.setVerbose(false);
 		CA e = new CA();
-		e.setVerbose(false);
 
 		DBR[] data = e.getDBRs(args, DBRType.STRING, 1);
 
