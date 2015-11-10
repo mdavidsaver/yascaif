@@ -1,4 +1,4 @@
-package yascaif.cli;
+package test;
 
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
