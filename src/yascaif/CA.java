@@ -39,9 +39,33 @@ public class CA implements AutoCloseable {
 	private Context ctxt;
 	private long timeout = 2000;
 
+	private static final String cajname = "com.cosylab.epics.caj.CAJContext";
+
 	public CA()
 	{
-		System.setProperty("jca.use_env", "true");
+		/* CAJ makes us decide whether to look for configuration in
+		 * the OS environment, or Java properties...
+		 * If any CA related environment variable are set, then assume
+		 * the environment is fully configured, otherwise use properties.
+		 */
+		boolean useenv = false;
+		for(String name : System.getenv().keySet())
+		{
+			if(name.startsWith("EPICS_CA_")) {
+				useenv = true;
+				L.fine(String.format(" %s=%s", name, System.getenv(name)));
+			}
+		}
+		if(useenv) {
+			System.setProperty("jca.use_env", "true");
+			L.info("Using CA settings from process environment");
+		} else {
+			L.info("Using CA settings from Java properties");
+			if(System.getProperty(cajname+".max_array_bytes")==null) {
+				L.info("Setting default max_array_bytes");
+				System.setProperty(cajname+".max_array_bytes", "8000000");
+			}
+		}
 		JCALibrary jca = JCALibrary.getInstance();
 		try {
 			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
@@ -64,7 +88,7 @@ public class CA implements AutoCloseable {
 		return ret;
 	}
 
-	public void setVerbose(boolean b)
+	public static void setVerbose(boolean b)
 	{
 		if(b)
 			L.setLevel(Level.ALL);
