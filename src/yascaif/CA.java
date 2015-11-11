@@ -6,6 +6,7 @@ import gov.aps.jca.CAStatusException;
 import gov.aps.jca.Channel;
 import gov.aps.jca.Context;
 import gov.aps.jca.JCALibrary;
+import gov.aps.jca.Channel.ConnectionState;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import gov.aps.jca.dbr.STS;
@@ -246,7 +247,6 @@ public class CA implements AutoCloseable {
 		try {
 			CAJChannel ch = (CAJChannel)ctxt.createChannel(name);
 			Getter get = new Getter(ch, dtype, count);
-			ch.addConnectionListenerAndFireIfConnected(get);
 
 			long now = System.currentTimeMillis(),
 					end = now+timeout;
@@ -289,7 +289,6 @@ public class CA implements AutoCloseable {
 			for(int i=0; i<names.length; i++) {
 				chans[i] = (CAJChannel)ctxt.createChannel(names[i]);
 				getters[i] = new Getter(chans[i], dtype, count);
-				chans[i].addConnectionListenerAndFireIfConnected(getters[i]);
 			}
 
 			long now = System.currentTimeMillis(),
@@ -332,7 +331,6 @@ public class CA implements AutoCloseable {
 		try {
 			CAJChannel ch = (CAJChannel)ctxt.createChannel(name);
 			Putter putter = new Putter(ch, dtype, count, val, wait);
-			ch.addConnectionListenerAndFireIfConnected(putter);
 
 			long now = System.currentTimeMillis(),
 					end = now+timeout;
@@ -373,6 +371,17 @@ public class CA implements AutoCloseable {
 			ch=chan;
 			dtype=t;
 			dcount=c;
+			synchronized (chan) {
+				if(chan.getConnectionState()!=ConnectionState.CONNECTED) {
+					try {
+						chan.addConnectionListener(this);
+					} catch (Exception e) {
+						throw new RuntimeException("error adding listener", e);
+					}
+				} else {
+					connectionChanged(new ConnectionEvent(chan, true));
+				}
+			}
 		}
 
 		@Override
@@ -473,6 +482,17 @@ public class CA implements AutoCloseable {
 			count = c;
 			val = v;
 			wait = w;
+			synchronized (ch) {
+				if(ch.getConnectionState()!=ConnectionState.CONNECTED) {
+					try {
+						ch.addConnectionListener(this);
+					} catch (Exception e) {
+						throw new RuntimeException("error adding listener", e);
+					}
+				} else {
+					connectionChanged(new ConnectionEvent(ch, true));
+				}
+			}
 		}
 
 		@Override
