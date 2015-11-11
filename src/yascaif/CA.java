@@ -356,21 +356,15 @@ public class CA implements AutoCloseable {
 
 	// Inner classes for callbacks
 
-	private class Getter implements ConnectionListener, GetListener
+	private abstract class OnConn implements ConnectionListener
 	{
-		private Channel ch;
-		private DBRType dtype;
-		private int dcount;
+		protected CAJChannel chan;
+		OnConn(CAJChannel ch) {
+			chan = ch;
+		}
 
-		public CAStatus status;
-		public DBR data;
-		public Exception bad;
-		public boolean done = false;
-
-		public Getter(Channel chan, DBRType t, int c) {
-			ch=chan;
-			dtype=t;
-			dcount=c;
+		protected void doConnect()
+		{
 			synchronized (chan) {
 				if(chan.getConnectionState()!=ConnectionState.CONNECTED) {
 					try {
@@ -379,7 +373,7 @@ public class CA implements AutoCloseable {
 						throw new RuntimeException("error adding listener", e);
 					}
 				} else {
-					connectionChanged(new ConnectionEvent(chan, true));
+					onConnect();
 				}
 			}
 		}
@@ -387,24 +381,50 @@ public class CA implements AutoCloseable {
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
 			try {
-				ch.removeConnectionListener(this);
+				chan.removeConnectionListener(this);
 			} catch (Exception e) {
 				L.log(Level.SEVERE, "Error in connectionChanged removeConnectionListener", e);
 			}
 			L.info(String.format("connectionChanged '%s' %sconnected",
-					ch.getName(), ev.isConnected()?"":"dis"));
+					chan.getName(), ev.isConnected()?"":"dis"));
 			if(!ev.isConnected())
 				return;
+			synchronized (chan) {
+				onConnect();
+			}
+		}
 
+		protected abstract void onConnect();
+	}
+
+	private class Getter extends OnConn implements GetListener
+	{
+		private DBRType dtype;
+		private int dcount;
+
+		public CAStatus status;
+		public DBR data;
+		public Exception bad;
+		public boolean done = false;
+
+		public Getter(CAJChannel chan, DBRType t, int c) {
+			super(chan);
+			dtype=t;
+			dcount=c;
+			doConnect();
+		}
+
+		@Override
+		public void onConnect() {
 			if(dtype==null)
-				dtype = ch.getFieldType();
+				dtype = chan.getFieldType();
 			if(dcount<0)
 				dcount = 0; // CAJ supports dynamic array size
 
 			try {
-				L.info(String.format("get request '%s' for %d", ch.getName(), dcount));
-				ch.get(dtype, dcount, this);
-				ch.getContext().flushIO();
+				L.info(String.format("get request '%s' for %d", chan.getName(), dcount));
+				chan.get(dtype, dcount, this);
+				chan.getContext().flushIO();
 
 			} catch (CAStatusException e) {
 				synchronized (this) {
@@ -424,7 +444,7 @@ public class CA implements AutoCloseable {
 
 		@Override
 		public void getCompleted(GetEvent ev) {
-			L.info(String.format("getComplete '%s'",ch.getName()));
+			L.info(String.format("getComplete '%s'",chan.getName()));
 			synchronized (this) {
 				status = ev.getStatus();
 				data = ev.getDBR();
@@ -463,9 +483,8 @@ public class CA implements AutoCloseable {
 		}
 	}
 
-	private class Putter implements ConnectionListener, PutListener
+	private class Putter extends OnConn implements PutListener
 	{
-		private CAJChannel ch;
 		private DBRType dtype;
 		private int count;
 		private Object val;
@@ -477,43 +496,23 @@ public class CA implements AutoCloseable {
 
 		public Putter(CAJChannel ch, DBRType d, int c, Object v, boolean w)
 		{
-			this.ch = ch;
+			super(ch);
 			dtype = d;
 			count = c;
 			val = v;
 			wait = w;
-			synchronized (ch) {
-				if(ch.getConnectionState()!=ConnectionState.CONNECTED) {
-					try {
-						ch.addConnectionListener(this);
-					} catch (Exception e) {
-						throw new RuntimeException("error adding listener", e);
-					}
-				} else {
-					connectionChanged(new ConnectionEvent(ch, true));
-				}
-			}
+			doConnect();
 		}
 
 		@Override
-		public void connectionChanged(ConnectionEvent ev) {
-			try {
-				ch.removeConnectionListener(this);
-			} catch (Exception e) {
-				L.log(Level.SEVERE, "Error in connectionChanged removeConnectionListener", e);
-			}
-			L.info(String.format("connectionChanged '%s' %sconnected",
-					ch.getName(), ev.isConnected()?"":"dis"));
-			if(!ev.isConnected())
-				return;
-
+		public void onConnect() {
 			try {
 				if(wait) {
-					ch.put(dtype, count, val, this);
+					chan.put(dtype, count, val, this);
 				} else {
-					ch.put(dtype, count, val);
+					chan.put(dtype, count, val);
 				}
-				ch.getContext().flushIO();
+				chan.getContext().flushIO();
 				if(!wait) {
 					synchronized (this) {
 						status = CAStatus.NORMAL;
@@ -540,7 +539,7 @@ public class CA implements AutoCloseable {
 
 		@Override
 		public synchronized void putCompleted(PutEvent ev) {
-			L.info(String.format("putCompleted '%s'",ch.getName()));
+			L.info(String.format("putCompleted '%s'",chan.getName()));
 			status = ev.getStatus();
 			done = true;
 			notify();
