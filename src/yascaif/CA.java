@@ -390,10 +390,10 @@ public class CA implements AutoCloseable {
 			if(dtype==null)
 				dtype = ch.getFieldType();
 			if(dcount<0)
-				dcount = ch.getElementCount();
+				dcount = 0; // CAJ supports dynamic array size
 
 			try {
-				L.info(String.format("get request '%s'", ch.getName()));
+				L.info(String.format("get request '%s' for %d", ch.getName(), dcount));
 				ch.get(dtype, dcount, this);
 				ch.getContext().flushIO();
 
