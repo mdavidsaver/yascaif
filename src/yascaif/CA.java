@@ -64,7 +64,7 @@ public class CA implements AutoCloseable {
 			L.info("Using CA settings from Java properties");
 			if(System.getProperty(cajname+".max_array_bytes")==null) {
 				L.info("Setting default max_array_bytes");
-				System.setProperty(cajname+".max_array_bytes", "8000000");
+				System.setProperty(cajname+".max_array_bytes", "33554532");
 			}
 		}
 		JCALibrary jca = JCALibrary.getInstance();
