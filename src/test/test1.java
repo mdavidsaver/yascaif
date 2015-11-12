@@ -38,8 +38,7 @@ public class test1 {
 			System.out.printf("Value is still %f%n", val);
 
 			DoubleWrapper v = ca.getDoubleM("TST:N:Samp-SP");
-			System.out.printf("Value: %f%nAlarm: %d%nTime: %f%n",
-					v.value()[0], v.severity(), v.time());
+			System.out.print(v.toString());
 
 		} catch(Exception e){
 			L.log(Level.SEVERE, "error", e);

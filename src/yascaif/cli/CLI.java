@@ -1,7 +1,9 @@
 package yascaif.cli;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -10,13 +12,19 @@ import yascaif.CA;
 public class CLI {
 	private static final Logger L = Logger.getLogger("");
 
+	private static final Map<String,Class<? extends Command>> commands = new HashMap<>();
+	static {
+		commands.put("get", Get.class);
+		commands.put("put", Set.class);
+	}
+
 	private static String command;
 	private static List<String> PVs = new LinkedList<>();
 	private static double timeout = 2.0;
 	
 	private static void usage()
 	{
-		System.out.printf("Usage: <prog> [-v] [-t timeout] [get|put|info] <PV names...>");
+		System.out.println("Usage: <prog> [-v] [-t timeout] [get|put|info] <PV names...>");
 		System.exit(1);
 	}
 
@@ -71,26 +79,32 @@ public class CLI {
 		L.setLevel(Level.SEVERE);
 		procArgs(args);
 
-		Command cmd = null;
-		if(command.equals("get")) {
-			cmd = new Get();
-		} else {
+		Class<? extends Command> cls = commands.get(command);
+		if(cls==null) {
 			System.err.printf("Unknown command '%s'%n", command);
 			System.exit(1);
 		}
-		
+
+		Command cmd = null;
+		try {
+			cmd = cls.getConstructor().newInstance();
+			assert cmd!=null;
+		} catch (Exception e) {
+			L.log(Level.SEVERE, "Find to instanciate", e);
+			System.exit(1);
+		}
+
 		if(PVs.size()==0) {
 			System.err.println("Empty PV list");
 			System.exit(1);
 		}
-		
+
 		try(CA ca = new CA()) {
 			ca.setTimeout(timeout);
 
 			ca.connect(PVs.toArray(new String[0]));
-			
+
 			cmd.process(ca, PVs);
 		}
 	}
-
 }

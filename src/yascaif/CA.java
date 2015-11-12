@@ -4,9 +4,9 @@ import gov.aps.jca.CAException;
 import gov.aps.jca.CAStatus;
 import gov.aps.jca.CAStatusException;
 import gov.aps.jca.Channel;
+import gov.aps.jca.Channel.ConnectionState;
 import gov.aps.jca.Context;
 import gov.aps.jca.JCALibrary;
-import gov.aps.jca.Channel.ConnectionState;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import gov.aps.jca.dbr.STS;
@@ -20,6 +20,12 @@ import gov.aps.jca.event.GetListener;
 import gov.aps.jca.event.PutEvent;
 import gov.aps.jca.event.PutListener;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -95,6 +101,28 @@ public class CA implements AutoCloseable {
 			L.setLevel(Level.ALL);
 		else
 			L.setLevel(Level.SEVERE);
+	}
+
+	public void printInfo()
+	{
+		ctxt.printInfo();
+	}
+
+	public void printInfo(PrintStream strm)
+	{
+		ctxt.printInfo(strm);
+	}
+
+	public String confInfo()
+	{
+		try(ByteArrayOutputStream bs = new ByteArrayOutputStream();
+			PrintStream ps = new PrintStream(bs))
+		{
+			ctxt.printInfo(ps);
+			return bs.toString();
+		} catch (IOException e) {
+			return e.toString();
+		}
 	}
 
 	// Get only value
@@ -181,6 +209,7 @@ public class CA implements AutoCloseable {
 	public void destroy()
 	{
 		ctxt.dispose();
+		ctxt = null;
 	}
 
 	// Some helper methods (not required)
@@ -455,34 +484,6 @@ public class CA implements AutoCloseable {
 		}
 	}
 
-	public class DoubleWrapper {
-		DBR data;
-		private DoubleWrapper(DBR d) {
-			data = d;
-		}
-		public double[] value() {
-			return (double[])data.getValue();
-		}
-		public int severity() {
-			Severity sevr = ((TIME)data).getSeverity();
-			if(sevr==Severity.NO_ALARM)
-				return 0;
-			else if(sevr==Severity.MINOR_ALARM)
-				return 1;
-			else if(sevr==Severity.MAJOR_ALARM)
-				return 2;
-			else if(sevr==Severity.INVALID_ALARM)
-				return 3;
-			else
-				return 3;
-		}
-		public double time() {
-			TimeStamp ts = ((TIME)data).getTimeStamp();
-			double sec = ts.secPastEpoch();
-			return sec+1e-9*ts.nsec();
-		}
-	}
-
 	private class Putter extends OnConn implements PutListener
 	{
 		private DBRType dtype;
@@ -543,6 +544,80 @@ public class CA implements AutoCloseable {
 			status = ev.getStatus();
 			done = true;
 			notify();
+		}
+	}
+
+	static private final Map<Severity, Integer> sevlut = new HashMap<>();
+	static {
+		sevlut.put(Severity.NO_ALARM, 0);
+		sevlut.put(Severity.MINOR_ALARM, 1);
+		sevlut.put(Severity.MAJOR_ALARM, 2);
+		sevlut.put(Severity.INVALID_ALARM, 3);
+	}
+
+	private abstract class XWrapper {
+		protected DBR data;
+		private XWrapper(DBR d) {
+			data = d;
+			assert d.isTIME();
+		}
+		public int severity() {
+			Severity sevr = ((TIME)data).getSeverity();
+			Integer I = sevlut.get(sevr);
+			return I==null ? 3 : I;
+		}
+		public double time() {
+			TimeStamp ts = ((TIME)data).getTimeStamp();
+			double sec = ts.secPastEpoch()+631152000;
+			return sec+1e-9*ts.nsec();
+		}
+		@Override
+		public String toString()
+		{
+			StringBuilder build = new StringBuilder("Date: ");
+			Date ts = new Date((long)(time()*1000));
+			build.append(ts.toString());
+			build.append("\nAlarm: ");
+			build.append(severity());
+			build.append("\nValue: ");
+			try {
+				DBR sdata = data.convert(DBRType.STRING);
+				String[] arr = (String[])sdata.getValue();
+				if(arr.length==1) {
+					build.append(arr[0]);
+				} else {
+					build.append(String.format("(%d) [", arr.length));
+					for(String e: arr) {
+						build.append(e);
+						build.append(", ");
+					}
+					build.append("]\n");
+				}
+			} catch (CAStatusException e) {
+				build.append("<Error>\n");
+			}
+			return build.toString();
+		}
+	}
+
+	public class DoubleWrapper extends XWrapper
+	{
+		public DoubleWrapper(DBR d) {
+			super(d);
+			assert d.isDOUBLE();
+		}
+		public double[] value() {
+			return (double[])data.getValue();
+		}
+	}
+
+	@Override
+	protected void finalize() throws Throwable
+	{
+		if(ctxt!=null) {
+			L.severe("Missing call to CA.close()");
+			ctxt.dispose();
+			ctxt=null;
 		}
 	}
 }
