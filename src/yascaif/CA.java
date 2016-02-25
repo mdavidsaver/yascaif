@@ -159,6 +159,22 @@ public class CA implements AutoCloseable {
 		return (int[])data.getValue();
 	}
 
+	public long getUInt(String name)
+	{
+		// long -> int does sign extension, which we don't want here
+		return 0xffffffffl & (long)getInt(name);
+	}
+
+	public long[] getUInt(String name, int count)
+	{
+		int[] sv = getInt(name, count);
+		long[] ret = new long[sv.length];
+		for(int i=0; i<sv.length; i++) {
+			ret[i] = 0xffffffffl & (long)sv[i];
+		}
+		return ret;
+	}
+
 	// get value and metadata (alarm and timestamp)
 
 	public DoubleWrapper getDoubleM(String name)
@@ -231,6 +247,31 @@ public class CA implements AutoCloseable {
 	public void putInt(String name, int[] val, boolean wait)
 	{
 		putDBR(name, DBRType.INT, val.length, val, wait);
+	}
+
+	public void putUInt(String name, long val)
+	{
+		putUInt(name, val, false);
+	}
+
+	public void putUInt(String name, long val, boolean wait)
+	{
+		int[] arr = new int[]{(int)val};
+		putInt(name, arr, wait);
+	}
+
+	public void putUInt(String name, long[] val)
+	{
+		putUInt(name, val, false);
+	}
+
+	public void putUInt(String name, long[] val, boolean wait)
+	{
+		int[] pval = new int[val.length];
+		for(int i=0; i<val.length; i++) {
+			pval[i] = (int)val[i];
+		}
+		putDBR(name, DBRType.INT, val.length, pval, wait);
 	}
 
 	public void putString(String name, String val)
