@@ -66,6 +66,7 @@
     </target>
     <target depends="clean" name="cleanall"/>
     <target depends="build-small-jar,build-big-jar" name="build"/>
+    <target depends="build" name="test"/>
 
     <target name="build-src" depends="fetch">
     	<mkdir dir="bin"/>
