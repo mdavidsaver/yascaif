@@ -143,6 +143,22 @@ public class CA implements AutoCloseable {
 		return (double[])data.getValue();
 	}
 
+	public int getInt(String name)
+	{
+		int[] ret = getInt(name, 1);
+		assert ret.length==1;
+		return ret[0];
+	}
+
+	public int[] getInt(String name, int count)
+	{
+		DBR data = getDBR(name, DBRType.STS_INT, count);
+		STS sts = (STS)data;
+		if(sts.getSeverity()==Severity.INVALID_ALARM)
+			throw new RuntimeException("Data is INVALID");
+		return (int[])data.getValue();
+	}
+
 	// get value and metadata (alarm and timestamp)
 
 	public DoubleWrapper getDoubleM(String name)
@@ -157,6 +173,20 @@ public class CA implements AutoCloseable {
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
 			throw new RuntimeException("Data is INVALID");
 		return new DoubleWrapper(data);
+	}
+
+	public IntegerWrapper getIntM(String name)
+	{
+		return getIntM(name, 1);
+	}
+
+	public IntegerWrapper getIntM(String name, int count)
+	{
+		DBR data = getDBR(name, DBRType.TIME_INT, count);
+		STS sts = (STS)data;
+		if(sts.getSeverity()==Severity.INVALID_ALARM)
+			throw new RuntimeException("Data is INVALID");
+		return new IntegerWrapper(data);
 	}
 
 	// put value
@@ -180,6 +210,27 @@ public class CA implements AutoCloseable {
 	public void putDouble(String name, double[] val, boolean wait)
 	{
 		putDBR(name, DBRType.DOUBLE, val.length, val, wait);
+	}
+
+	public void putInt(String name, int val)
+	{
+		putInt(name, val, false);
+	}
+
+	public void putInt(String name, int val, boolean wait)
+	{
+		int[] arr = new int[]{val};
+		putInt(name, arr, wait);
+	}
+
+	public void putInt(String name, int[] val)
+	{
+		putInt(name, val, false);
+	}
+
+	public void putInt(String name, int[] val, boolean wait)
+	{
+		putDBR(name, DBRType.INT, val.length, val, wait);
 	}
 
 	public void putString(String name, String val)
@@ -608,6 +659,17 @@ public class CA implements AutoCloseable {
 		}
 		public double[] value() {
 			return (double[])data.getValue();
+		}
+	}
+
+	public class IntegerWrapper extends XWrapper
+	{
+		public IntegerWrapper(DBR d) {
+			super(d);
+			assert d.isINT();
+		}
+		public int[] value() {
+			return (int[])data.getValue();
 		}
 	}
 
