@@ -139,7 +139,7 @@ public class CA implements AutoCloseable {
 		DBR data = getDBR(name, DBRType.STS_DOUBLE, count);
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("Data is INVALID");
+			throw new RuntimeException("INVALID_ALARM active on PV");
 		return (double[])data.getValue();
 	}
 
@@ -155,7 +155,7 @@ public class CA implements AutoCloseable {
 		DBR data = getDBR(name, DBRType.STS_INT, count);
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("Data is INVALID");
+			throw new RuntimeException("INVALID_ALARM active on PV");
 		return (int[])data.getValue();
 	}
 
@@ -171,7 +171,7 @@ public class CA implements AutoCloseable {
 		DBR data = getDBR(name, DBRType.TIME_DOUBLE, count);
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("Data is INVALID");
+			throw new RuntimeException("INVALID_ALARM active on PV");
 		return new DoubleWrapper(data);
 	}
 
@@ -185,7 +185,7 @@ public class CA implements AutoCloseable {
 		DBR data = getDBR(name, DBRType.TIME_INT, count);
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("Data is INVALID");
+			throw new RuntimeException("INVALID_ALARM active on PV");
 		return new IntegerWrapper(data);
 	}
 
