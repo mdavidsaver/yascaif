@@ -318,21 +318,17 @@ public class CA implements AutoCloseable {
 
 	// Methods for full cleanup
 
-	/** Disconnect all channels and invalidate this object
-	 */
+	/** Alias for finalize() */
 	@Override
 	public void close()
 	{
-		ctxt.dispose();
-		ctxt = null;
+		finalize();
 	}
 
-	/** Alias for close()
-	 */
+	/** Alias for finalize() */
 	public void destroy()
 	{
-		ctxt.dispose();
-		ctxt = null;
+		finalize();
 	}
 
 	// Some helper methods (not required)
@@ -746,10 +742,9 @@ public class CA implements AutoCloseable {
 	}
 
 	@Override
-	protected void finalize() throws Throwable
+	protected void finalize()
 	{
 		if(ctxt!=null) {
-			L.severe("Missing call to CA.close()");
 			ctxt.dispose();
 			ctxt=null;
 		}
