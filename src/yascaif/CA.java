@@ -48,6 +48,12 @@ public class CA implements AutoCloseable {
 
 	private static final String cajname = "com.cosylab.epics.caj.CAJContext";
 
+	/** Construct a new CA client context.
+	 * 
+	 * Configuration is taken from the process environment if any
+	 * environment variables beginning with "EPICS_CA_" are set.
+	 * Otherwise the CAJ/JCA Java properties are used.
+	 */
 	public CA()
 	{
 		/* CAJ makes us decide whether to look for configuration in
@@ -73,6 +79,31 @@ public class CA implements AutoCloseable {
 				System.setProperty(cajname+".max_array_bytes", "33554532");
 			}
 		}
+		JCALibrary jca = JCALibrary.getInstance();
+		try {
+			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
+		} catch (CAException e) {
+			throw new RuntimeException("Failed to create JCA/CAJ context", e);
+		}
+	}
+
+	/** Construct a new CA client context with the given configuration
+	 * 
+	 * Ignores any CA environment variables.  Overrides java property settings
+	 * for max array bytes, address list, and auto address list.
+	 * Other java properties will be used.
+	 */
+	public CA(long max_array_bytes, String addr_list, boolean auto_addr_list)
+	{
+		if(max_array_bytes<128) {
+			L.warning("Ignoring max_array_bytes < 128 bytes");
+		} else {
+			System.setProperty(cajname+".max_array_bytes",
+					Long.toString(max_array_bytes));
+		}
+		System.setProperty("jca.use_env", "false");
+		System.setProperty(cajname+".addr_list", addr_list);
+		System.setProperty(cajname+".auto_addr_list", auto_addr_list ? "true" : "false");
 		JCALibrary jca = JCALibrary.getInstance();
 		try {
 			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
