@@ -48,6 +48,13 @@ public class CA implements AutoCloseable {
 
 	private static final String cajname = "com.cosylab.epics.caj.CAJContext";
 
+	static {
+		// Silence CARepeater start failures logging by default
+		// it will still print to stderr :P
+		Logger rep = Logger.getLogger("com.cosylab.epics.caj.CARepeater");
+		rep.setUseParentHandlers(false);
+	}
+
 	/** Construct a new CA client context.
 	 * 
 	 * Configuration is taken from the process environment if any
