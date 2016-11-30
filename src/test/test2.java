@@ -4,7 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import yascaif.CA;
-import yascaif.CA.DoubleWrapper;
+import yascaif.wrapper.DoubleWrapper;
 
 public class test2 {
 

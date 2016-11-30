@@ -24,7 +24,9 @@ public class CLI {
 	
 	private static void usage()
 	{
-		System.out.println("Usage: <prog> [-v] [-t timeout] [get|put|info] <PV names...>");
+		String cmds = String.join("|", commands.keySet());
+
+		System.out.println("Usage: <prog> [-v] [-t timeout] ["+cmds+"] <PV names...>");
 		System.exit(1);
 	}
 
@@ -46,7 +48,7 @@ public class CLI {
 			} else if(arg.startsWith("-") && arg.length()==2) {
 				char O = arg.charAt(1);
 				if(O=='v') {
-					L.setLevel(Level.ALL);
+					L.setLevel(Level.FINEST);
 					continue;
 					
 				} else if(O=='h') {

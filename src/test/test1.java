@@ -4,8 +4,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import yascaif.CA;
-import yascaif.CA.DoubleWrapper;
 import yascaif.TimeMe;
+import yascaif.wrapper.DoubleWrapper;
 
 public class test1 {
 

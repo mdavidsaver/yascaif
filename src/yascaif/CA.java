@@ -3,7 +3,6 @@ package yascaif;
 import gov.aps.jca.CAException;
 import gov.aps.jca.CAStatus;
 import gov.aps.jca.CAStatusException;
-import gov.aps.jca.Channel;
 import gov.aps.jca.Channel.ConnectionState;
 import gov.aps.jca.Context;
 import gov.aps.jca.JCALibrary;
@@ -11,8 +10,6 @@ import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import gov.aps.jca.dbr.STS;
 import gov.aps.jca.dbr.Severity;
-import gov.aps.jca.dbr.TIME;
-import gov.aps.jca.dbr.TimeStamp;
 import gov.aps.jca.event.ConnectionEvent;
 import gov.aps.jca.event.ConnectionListener;
 import gov.aps.jca.event.GetEvent;
@@ -23,11 +20,13 @@ import gov.aps.jca.event.PutListener;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import yascaif.wrapper.DoubleWrapper;
+import yascaif.wrapper.IntegerWrapper;
 
 import com.cosylab.epics.caj.CAJChannel;
 
@@ -55,6 +54,41 @@ public class CA implements AutoCloseable {
 		rep.setUseParentHandlers(false);
 	}
 
+	private final Map<String, CAJChannel> channels = new HashMap<>();
+
+	// Create or re-use Channel
+	// returned CAJChannel may already be connected
+	private CAJChannel lookup(String pvname)
+	{
+		CAJChannel chan;
+		synchronized (this) {
+			chan = channels.get(pvname);
+		}
+		if(chan==null) {
+			try {
+				chan = (CAJChannel) ctxt.createChannel(pvname);
+				L.info("Create connection to "+pvname);
+			} catch (Exception e) {
+				throw new RuntimeException("Failed to create channel", e);
+			}
+		}
+		CAJChannel other;
+		synchronized (this) {
+			other = channels.get(pvname);
+			if(other==null)
+				channels.put(pvname, chan);
+		}
+		if(other!=null && chan!=other) {
+			try {
+				chan.destroy();
+			} catch (Exception e) {
+				L.log(Level.WARNING, "Destruction of incidental channel fails", e);
+			}
+			chan = other;
+		}
+		return chan;
+	}
+	
 	/** Construct a new CA client context.
 	 * 
 	 * Configuration is taken from the process environment if any
@@ -226,7 +260,7 @@ public class CA implements AutoCloseable {
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
 			throw new RuntimeException("INVALID_ALARM active on PV");
-		return new DoubleWrapper(data);
+		return new DoubleWrapper(this, data);
 	}
 
 	public IntegerWrapper getIntM(String name)
@@ -240,7 +274,7 @@ public class CA implements AutoCloseable {
 		STS sts = (STS)data;
 		if(sts.getSeverity()==Severity.INVALID_ALARM)
 			throw new RuntimeException("INVALID_ALARM active on PV");
-		return new IntegerWrapper(data);
+		return new IntegerWrapper(this, data);
 	}
 
 	// put value
@@ -355,9 +389,13 @@ public class CA implements AutoCloseable {
 	public void disconnect(String[] names)
 	{
 		for(String name : names) {
+			CAJChannel chan;
+			synchronized (this) {
+				chan = channels.remove(name);
+			}
+			if(chan==null) continue;
 			try {
-				Channel ch = ctxt.createChannel(name);
-				ch.destroy();
+				chan.destroy();
 			}catch(Exception e){
 				L.log(Level.SEVERE, "Error to disconnect PV", e);
 			}
@@ -380,7 +418,7 @@ public class CA implements AutoCloseable {
 	{
 		for(String name : names) {
 			try {
-				ctxt.createChannel(name);
+				lookup(name);
 			}catch(Exception e){
 				L.log(Level.SEVERE, "Error to disconnect PV", e);
 			}
@@ -400,28 +438,28 @@ public class CA implements AutoCloseable {
 	public DBR getDBR(String name, DBRType dtype, int count)
 	{
 		try {
-			CAJChannel ch = (CAJChannel)ctxt.createChannel(name);
-			Getter get = new Getter(ch, dtype, count);
-
-			long now = System.currentTimeMillis(),
-					end = now+timeout;
-			synchronized (get) {
-				while(!get.done && now<end) {
-					get.wait(end-now);
-					now = System.currentTimeMillis();
+			CAJChannel ch = lookup(name);
+			try(Getter get = new Getter(ch, dtype, count)) {
+	
+				long now = System.currentTimeMillis(),
+						end = now+timeout;
+				synchronized (get) {
+					while(!get.done && now<end) {
+						get.wait(end-now);
+						now = System.currentTimeMillis();
+					}
 				}
+	
+				if(!get.done)
+					throw new RuntimeException("timeout");
+				else if(get.bad!=null)
+					throw get.bad;
+				else if(!get.status.isSuccessful())
+					throw new RuntimeException("CA Error "+get.status.toString());
+	
+				assert get.data!=null;
+				return get.data;
 			}
-
-			if(!get.done)
-				throw new RuntimeException("timeout");
-			else if(get.bad!=null)
-				throw get.bad;
-			else if(!get.status.isSuccessful())
-				throw new RuntimeException("CA Error "+get.status.toString());
-
-			assert get.data!=null;
-			return get.data;
-
 		}catch(Exception e){
 			throw new RuntimeException("Failed to get PV", e);
 		}
@@ -442,7 +480,7 @@ public class CA implements AutoCloseable {
 		DBR[] ret = new DBR[names.length];
 		try {
 			for(int i=0; i<names.length; i++) {
-				chans[i] = (CAJChannel)ctxt.createChannel(names[i]);
+				chans[i] = lookup(names[i]);
 				getters[i] = new Getter(chans[i], dtype, count);
 			}
 
@@ -468,6 +506,14 @@ public class CA implements AutoCloseable {
 			return ret;
 		}catch(Exception e){
 			throw new RuntimeException("Failed to get PV", e);
+		}finally{
+			for(Getter get : getters) {
+				try {
+					get.close();
+				} catch (Exception e) {
+					L.log(Level.WARNING, "Error cleaning up Getter", e);
+				}
+			}
 		}
 	}
 
@@ -484,26 +530,26 @@ public class CA implements AutoCloseable {
 	public void putDBR(String name, DBRType dtype, int count, Object val, boolean wait)
 	{
 		try {
-			CAJChannel ch = (CAJChannel)ctxt.createChannel(name);
-			Putter putter = new Putter(ch, dtype, count, val, wait);
+			CAJChannel ch = lookup(name);
+			try (Putter putter = new Putter(ch, dtype, count, val, wait)) {
 
-			long now = System.currentTimeMillis(),
-					end = now+timeout;
-
-			synchronized (putter) {
-				while(!putter.done && now<end) {
-					putter.wait(end-now);
-					now = System.currentTimeMillis();
+				long now = System.currentTimeMillis(),
+						end = now+timeout;
+	
+				synchronized (putter) {
+					while(!putter.done && now<end) {
+						putter.wait(end-now);
+						now = System.currentTimeMillis();
+					}
 				}
+	
+				if(!putter.done)
+					throw new RuntimeException("timeout");
+				else if(putter.bad!=null)
+					throw putter.bad;
+				else if(!putter.status.isSuccessful())
+					throw new RuntimeException("CA error : "+putter.status.toString());
 			}
-
-			if(!putter.done)
-				throw new RuntimeException("timeout");
-			else if(putter.bad!=null)
-				throw putter.bad;
-			else if(!putter.status.isSuccessful())
-				throw new RuntimeException("CA error : "+putter.status.toString());
-
 		}catch(Exception e){
 			throw new RuntimeException("Failed to put PV", e);
 		}
@@ -511,90 +557,122 @@ public class CA implements AutoCloseable {
 
 	// Inner classes for callbacks
 
-	private abstract class OnConn implements ConnectionListener
+	// Helper for one-shot get/put operations
+	private abstract class OnConn implements ConnectionListener, AutoCloseable
 	{
 		protected CAJChannel chan;
-		OnConn(CAJChannel ch) {
+		// Have we notified yet?
+		public boolean done = false;
+		// Have we called onConnect()?
+		protected boolean beenconn = false;
+		protected boolean listenconn = false;
+
+		public DBRType dtype;
+		public int dcount;
+
+		public CAStatus status = CAStatus.IOINPROGESS;
+		public DBR data;
+		public Exception bad;
+		
+		OnConn(CAJChannel ch, DBRType dt, int dc) {
 			chan = ch;
+			dtype = dt;
+			dcount = dc;
 		}
 
+		@Override
+		public void close() throws Exception {}
+		{
+			if(listenconn) {
+				try {
+					chan.removeConnectionListener(this);
+				} catch (Exception e) {
+					throw new RuntimeException("error removing listener", e);
+				}
+			}
+		}
+		
 		protected void doConnect()
 		{
 			synchronized (chan) {
-				if(chan.getConnectionState()!=ConnectionState.CONNECTED) {
-					try {
-						chan.addConnectionListener(this);
-					} catch (Exception e) {
-						throw new RuntimeException("error adding listener", e);
-					}
-				} else {
-					onConnect();
+				try {
+					chan.addConnectionListener(this);
+					listenconn = true;
+				} catch (Exception e) {
+					throw new RuntimeException("error adding listener", e);
+				}
+
+				if(chan.getConnectionState()==ConnectionState.CONNECTED) {
+					connectionChanged(new ConnectionEvent(chan, true));
 				}
 			}
 		}
 
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
-			try {
-				chan.removeConnectionListener(this);
-			} catch (Exception e) {
-				L.log(Level.SEVERE, "Error in connectionChanged removeConnectionListener", e);
+			if(done) return;
+
+			if(ev.isConnected()) {
+				if(dtype==null)
+					dtype = chan.getFieldType();
+				if(dcount<0)
+					dcount = 0; // CAJ supports dynamic array size
 			}
+
 			L.info(String.format("connectionChanged '%s' %sconnected",
 					chan.getName(), ev.isConnected()?"":"dis"));
-			if(!ev.isConnected())
-				return;
-			synchronized (chan) {
-				onConnect();
+
+			if(ev.isConnected()) {
+				try {
+					synchronized (chan) {
+						if(!beenconn) {
+							beenconn = true;
+							onConnect();
+						}
+					}
+				} catch (CAStatusException e) {
+					synchronized (this) {
+						done = true;
+						status = e.getStatus();
+						assert !status.isSuccessful();
+						notify();
+					}
+				} catch (Exception e) {
+					synchronized (this) {
+						bad = e;
+						done = true;
+						notify();
+					}
+				}
+			} else {
+				// oops, became disconnected
+				// notify of failure
+				synchronized(this) {
+					done = true;
+					bad = new RuntimeException("Connection lost");
+					status = CAStatus.DISCONN;
+					notify();
+				}
 			}
 		}
 
-		protected abstract void onConnect();
+		// Called within synchronized(chan) {}
+		protected abstract void onConnect() throws Exception;
 	}
 
 	private class Getter extends OnConn implements GetListener
 	{
-		private DBRType dtype;
-		private int dcount;
-
-		public CAStatus status;
-		public DBR data;
-		public Exception bad;
-		public boolean done = false;
 
 		public Getter(CAJChannel chan, DBRType t, int c) {
-			super(chan);
-			dtype=t;
-			dcount=c;
+			super(chan, t, c);
 			doConnect();
 		}
 
 		@Override
-		public void onConnect() {
-			if(dtype==null)
-				dtype = chan.getFieldType();
-			if(dcount<0)
-				dcount = 0; // CAJ supports dynamic array size
-
-			try {
-				L.info(String.format("get request '%s' for %d", chan.getName(), dcount));
-				chan.get(dtype, dcount, this);
-				chan.getContext().flushIO();
-
-			} catch (CAStatusException e) {
-				synchronized (this) {
-					done = true;
-					status = e.getStatus();
-					assert !status.isSuccessful();
-					notify();
-				}
-			} catch (Exception e) {
-				synchronized (this) {
-					bad = e;
-					done = true;
-					notify();
-				}
-			}
+		public void onConnect() throws Exception {
+			L.info(String.format("get request '%s' for %d", chan.getName(), dcount));
+			chan.get(dtype, dcount, this);
+			chan.getContext().flushIO();
 		}
 
 		@Override
@@ -612,139 +690,44 @@ public class CA implements AutoCloseable {
 
 	private class Putter extends OnConn implements PutListener
 	{
-		private DBRType dtype;
-		private int count;
 		private Object val;
 		private boolean wait;
 
-		public boolean done = false;
-		public Exception bad;
-		public CAStatus status;
-
 		public Putter(CAJChannel ch, DBRType d, int c, Object v, boolean w)
 		{
-			super(ch);
-			dtype = d;
-			count = c;
+			super(ch, d, c);
 			val = v;
 			wait = w;
 			doConnect();
 		}
 
 		@Override
-		public void onConnect() {
-			try {
-				if(wait) {
-					chan.put(dtype, count, val, this);
-				} else {
-					chan.put(dtype, count, val);
-				}
-				chan.getContext().flushIO();
-				if(!wait) {
-					synchronized (this) {
-						status = CAStatus.NORMAL;
-						done = true;
-						notify();
-					}
-				}
-			} catch (CAStatusException e) {
+		public void onConnect() throws Exception {
+			if(wait) {
+				chan.put(dtype, dcount, val, this);
+			} else {
+				chan.put(dtype, dcount, val);
+			}
+			chan.getContext().flushIO();
+			if(!wait) {
+				// Done now if not waiting for completion
+				// otherwise done in putCompleted()
 				synchronized (this) {
-					done = true;
-					status = e.getStatus();
-					assert !status.isSuccessful();
-					notify();
-				}
-			} catch (Exception e) {
-				synchronized (this) {
-					bad = e;
+					status = CAStatus.NORMAL;
 					done = true;
 					notify();
 				}
 			}
-
 		}
 
 		@Override
 		public synchronized void putCompleted(PutEvent ev) {
 			L.info(String.format("putCompleted '%s'",chan.getName()));
-			status = ev.getStatus();
-			done = true;
-			notify();
-		}
-	}
-
-	static private final Map<Severity, Integer> sevlut = new HashMap<>();
-	static {
-		sevlut.put(Severity.NO_ALARM, 0);
-		sevlut.put(Severity.MINOR_ALARM, 1);
-		sevlut.put(Severity.MAJOR_ALARM, 2);
-		sevlut.put(Severity.INVALID_ALARM, 3);
-	}
-
-	private abstract class XWrapper {
-		protected DBR data;
-		private XWrapper(DBR d) {
-			data = d;
-			assert d.isTIME();
-		}
-		public int severity() {
-			Severity sevr = ((TIME)data).getSeverity();
-			Integer I = sevlut.get(sevr);
-			return I==null ? 3 : I;
-		}
-		public double time() {
-			TimeStamp ts = ((TIME)data).getTimeStamp();
-			double sec = ts.secPastEpoch()+631152000;
-			return sec+1e-9*ts.nsec();
-		}
-		@Override
-		public String toString()
-		{
-			StringBuilder build = new StringBuilder("Date: ");
-			Date ts = new Date((long)(time()*1000));
-			build.append(ts.toString());
-			build.append("\nAlarm: ");
-			build.append(severity());
-			build.append("\nValue: ");
-			try {
-				DBR sdata = data.convert(DBRType.STRING);
-				String[] arr = (String[])sdata.getValue();
-				if(arr.length==1) {
-					build.append(arr[0]);
-				} else {
-					build.append(String.format("(%d) [", arr.length));
-					for(String e: arr) {
-						build.append(e);
-						build.append(", ");
-					}
-					build.append("]\n");
-				}
-			} catch (CAStatusException e) {
-				build.append("<Error>\n");
+			synchronized (this) {
+				status = ev.getStatus();
+				done = true;
+				notify();
 			}
-			return build.toString();
-		}
-	}
-
-	public class DoubleWrapper extends XWrapper
-	{
-		public DoubleWrapper(DBR d) {
-			super(d);
-			assert d.isDOUBLE();
-		}
-		public double[] value() {
-			return (double[])data.getValue();
-		}
-	}
-
-	public class IntegerWrapper extends XWrapper
-	{
-		public IntegerWrapper(DBR d) {
-			super(d);
-			assert d.isINT();
-		}
-		public int[] value() {
-			return (int[])data.getValue();
 		}
 	}
 
@@ -752,6 +735,18 @@ public class CA implements AutoCloseable {
 	protected void finalize()
 	{
 		if(ctxt!=null) {
+			Map<String, CAJChannel> cmap;
+			synchronized (this) {
+				cmap = new HashMap<>(channels); // copy
+				channels.clear();
+			}
+			for(CAJChannel chan : cmap.values()) {
+				try {
+					chan.destroy();
+				}catch(Exception e){
+					L.log(Level.SEVERE, "Error to disconnect PV", e);
+				}
+			}
 			ctxt.dispose();
 			ctxt=null;
 		}
