@@ -3,7 +3,6 @@ package yascaif;
 import gov.aps.jca.CAException;
 import gov.aps.jca.CAStatus;
 import gov.aps.jca.CAStatusException;
-import gov.aps.jca.Channel.ConnectionState;
 import gov.aps.jca.Context;
 import gov.aps.jca.JCALibrary;
 import gov.aps.jca.dbr.DBR;
@@ -20,6 +19,7 @@ import gov.aps.jca.event.PutListener;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -356,20 +356,126 @@ public class CA implements AutoCloseable {
 		String[] arr = new String[]{val};
 		putDBR(name, DBRType.STRING, 1, arr, wait);
 	}
+	
+	public Monitor monitor(String name)
+	{
+		CAJChannel chan = lookup(name);
+		return new Monitor(chan);
+	}
+	
+	/* map type to DBR code, also constitutes set of acceptable types */
+	static final Map<Class<?>, DBRType> puttype = new HashMap<>();
+	static {
+		puttype.put(Double.class, DBRType.DOUBLE);
+		puttype.put(Float.class, DBRType.FLOAT);
+		puttype.put(Integer.class, DBRType.INT);
+		puttype.put(Short.class, DBRType.SHORT);
+		puttype.put(Byte.class, DBRType.BYTE);
+		puttype.put(String.class, DBRType.STRING);
+	}
 
+	/** Shorthand for write(name, val, false) */
+	public void write(String name, Object val)
+	{
+		write(name, val, false);
+	}
+
+	/** Issue a CA Put operation
+	 * 
+	 * Value may be a scalar String or primitive (byte, short, int, float, or long).
+	 * Arrays of allows scalars are also accepted.
+	 * 
+	 * @param name PV name
+	 * @param val Value to put.  A String, primitive, or array of primitive
+	 * @param wait Whether to request, and wait for, completion notification
+	 */
+	public void write(String name, Object val, boolean wait)
+	{
+		DBRType dtype;
+		int count;
+		Class<?> klass = val.getClass();
+		
+		if(klass.isArray()) {
+			count = Array.getLength(val);
+		} else {
+			// package scalar in size 1 array
+			count = 1;
+			Object aval = Array.newInstance(klass, 1);
+			Array.set(aval, 0, val);
+			val = aval;
+			klass = val.getClass();
+		}
+
+		dtype = puttype.get(klass.getComponentType());
+
+		if(dtype==null) {
+			throw new RuntimeException("Can't translate "+klass.getName()+" to CA compatible type");
+		}
+		
+		putDBR(name, dtype, count, val, wait);
+	}
+	
+	public PValue readM(String pvname)
+	{
+		DBR dbr = getDBR(pvname, null, -1);
+		return new PValue(this, dbr);
+	}
+
+	public Object read(String pvname)
+	{
+		DBR ret = getDBR(pvname, null, -1);
+		if(ret.isSTS()) {
+			STS sts = (STS)ret;
+			if(sts.getSeverity()==Severity.INVALID_ALARM)
+				throw new RuntimeException("INVALID_ALARM active on PV "+pvname);
+		}
+		return ret.getValue();
+	}
+
+	public PValue[] readManyM(String[] names)
+	{
+		DBR[] dbrs = getDBRs(names, null, -1);
+		PValue[] ret = new PValue[dbrs.length];
+		for(int i=0; i<dbrs.length; i++) {
+			ret[i] = new PValue(this, dbrs[i]);
+		}
+		return ret;
+	}
+	
 	// Methods for full cleanup
 
-	/** Alias for finalize() */
+	/** Close out all channels */
 	@Override
 	public void close()
 	{
 		finalize();
 	}
 
-	/** Alias for finalize() */
+	/** Alias for close() */
 	public void destroy()
 	{
 		finalize();
+	}
+
+	@Override
+	protected void finalize()
+	{
+		if(ctxt!=null) {
+			Map<String, CAJChannel> cmap;
+			synchronized (this) {
+				cmap = new HashMap<>(channels); // copy
+				channels.clear();
+			}
+			for(CAJChannel chan : cmap.values()) {
+				try {
+					chan.destroy();
+				}catch(Exception e){
+					L.log(Level.SEVERE, "Error to disconnect PV", e);
+				}
+			}
+			ctxt.dispose();
+			ctxt=null;
+		}
 	}
 
 	// Some helper methods (not required)
@@ -557,6 +663,19 @@ public class CA implements AutoCloseable {
 
 	// Inner classes for callbacks
 
+
+	static public final Map<DBRType, DBRType> promotemap = new HashMap<>();
+	static {
+		promotemap.put(DBRType.STRING, DBRType.TIME_STRING);
+		promotemap.put(DBRType.DOUBLE, DBRType.TIME_DOUBLE);
+		promotemap.put(DBRType.FLOAT , DBRType.TIME_FLOAT);
+		promotemap.put(DBRType.INT   , DBRType.TIME_INT);
+		promotemap.put(DBRType.SHORT , DBRType.TIME_SHORT);
+		promotemap.put(DBRType.BYTE  , DBRType.TIME_BYTE);
+		// maybe handles CLASS_NAME and similar?
+		promotemap.put(DBRType.UNKNOWN, DBRType.TIME_STRING);
+	}
+	
 	// Helper for one-shot get/put operations
 	private abstract class OnConn implements ConnectionListener, AutoCloseable
 	{
@@ -596,25 +715,24 @@ public class CA implements AutoCloseable {
 		{
 			synchronized (chan) {
 				try {
-					chan.addConnectionListener(this);
+					chan.addConnectionListenerAndFireIfConnected(this);
 					listenconn = true;
 				} catch (Exception e) {
 					throw new RuntimeException("error adding listener", e);
 				}
-
-				if(chan.getConnectionState()==ConnectionState.CONNECTED) {
-					connectionChanged(new ConnectionEvent(chan, true));
-				}
 			}
 		}
-
+		
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
 			if(done) return;
 
 			if(ev.isConnected()) {
-				if(dtype==null)
+				if(dtype==null) {
 					dtype = chan.getFieldType();
+					DBRType pt = promotemap.get(dtype);
+					if(pt!=null) dtype = pt;
+				}
 				if(dcount<0)
 					dcount = 0; // CAJ supports dynamic array size
 			}
@@ -728,27 +846,6 @@ public class CA implements AutoCloseable {
 				done = true;
 				notify();
 			}
-		}
-	}
-
-	@Override
-	protected void finalize()
-	{
-		if(ctxt!=null) {
-			Map<String, CAJChannel> cmap;
-			synchronized (this) {
-				cmap = new HashMap<>(channels); // copy
-				channels.clear();
-			}
-			for(CAJChannel chan : cmap.values()) {
-				try {
-					chan.destroy();
-				}catch(Exception e){
-					L.log(Level.SEVERE, "Error to disconnect PV", e);
-				}
-			}
-			ctxt.dispose();
-			ctxt=null;
 		}
 	}
 }

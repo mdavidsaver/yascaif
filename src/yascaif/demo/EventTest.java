@@ -10,6 +10,9 @@ import java.util.logging.Logger;
 
 /** MATLAB event handler demo
  *
+ * @note This code needs to be in the *static* class path in order for the
+ * Listener code generation tricks to work.
+ *
  * cf.
  *  http://undocumentedmatlab.com/blog/matlab-callbacks-for-java-events
  *  http://undocumentedmatlab.com/blog/matlab-callbacks-for-java-events-in-r2014a
@@ -20,7 +23,7 @@ import java.util.logging.Logger;
  *  set(evt, 'EventNameCallback', @(h,e) disp(e.value));
  *  evt.notify(4.2);
  */
-public class EventTest {
+public class EventTest implements AutoCloseable {
 	private static Logger log = Logger.getLogger(EventTest.class.getCanonicalName());
 	
 	public class MyEvt extends EventObject
@@ -72,5 +75,17 @@ public class EventTest {
 		}
 		
 		log.info("end notify");
+	}
+
+	// matlab doesn't know about AutoClosable
+	@Override
+	public void close() {
+		log.info(EventTest.class.getName()+" close");
+	}
+
+	// GC finalize still gets called eventually after the matlab workspace is cleared
+	@Override
+	protected void finalize() {
+		log.info(EventTest.class.getName()+" finalize");
 	}
 }

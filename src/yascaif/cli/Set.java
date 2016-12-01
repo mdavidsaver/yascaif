@@ -13,7 +13,7 @@ public class Set implements Command {
 			System.exit(1);
 		}
 		for(int i=0; i<PVs.size(); i+=2) {
-			ca.putString(PVs.get(i), PVs.get(i+1));
+			ca.write(PVs.get(i), PVs.get(i+1));
 		}
 	}
 

@@ -23,7 +23,7 @@ public abstract class XWrapper extends EventObject {
 	}
 
 	private static final long serialVersionUID = 1L;
-
+	
 	protected DBR data;
 	
 	public XWrapper(Object src, DBR d) {
@@ -33,14 +33,21 @@ public abstract class XWrapper extends EventObject {
 	}
 
 	public int severity() {
-		Severity sevr = ((TIME)data).getSeverity();
-		Integer I = sevlut.get(sevr);
+		Integer I=3;
+		if(data!=null) {
+			Severity sevr = ((TIME)data).getSeverity();
+			I = sevlut.get(sevr);
+		}
 		return I==null ? 3 : I;
 	}
 	public double time() {
-		TimeStamp ts = ((TIME)data).getTimeStamp();
-		double sec = ts.secPastEpoch()+631152000;
-		return sec+1e-9*ts.nsec();
+		double ret = 0;
+		if(data!=null) {
+			TimeStamp ts = ((TIME)data).getTimeStamp();
+			double sec = ts.secPastEpoch()+631152000;
+			ret = sec+1e-9*ts.nsec();
+		}
+		return ret;
 	}
 	@Override
 	public String toString()
@@ -51,21 +58,25 @@ public abstract class XWrapper extends EventObject {
 		build.append("\nAlarm: ");
 		build.append(severity());
 		build.append("\nValue: ");
-		try {
-			DBR sdata = data.convert(DBRType.STRING);
-			String[] arr = (String[])sdata.getValue();
-			if(arr.length==1) {
-				build.append(arr[0]);
-			} else {
-				build.append(String.format("(%d) [", arr.length));
-				for(String e: arr) {
-					build.append(e);
-					build.append(", ");
+		if(data==null) {
+			build.append("<no data>");
+		} else {
+			try {
+				DBR sdata = data.convert(DBRType.STRING);
+				String[] arr = (String[])sdata.getValue();
+				if(arr.length==1) {
+					build.append(arr[0]);
+				} else {
+					build.append(String.format("(%d) [", arr.length));
+					for(String e: arr) {
+						build.append(e);
+						build.append(", ");
+					}
+					build.append("]\n");
 				}
-				build.append("]\n");
+			} catch (CAStatusException e) {
+				build.append("<Error>\n");
 			}
-		} catch (CAStatusException e) {
-			build.append("<Error>\n");
 		}
 		return build.toString();
 	}
