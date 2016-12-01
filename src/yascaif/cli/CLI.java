@@ -1,6 +1,7 @@
 package yascaif.cli;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +26,18 @@ public class CLI {
 	
 	private static void usage()
 	{
-		String cmds = String.join("|", commands.keySet());
-
-		System.out.println("Usage: <prog> [-v] [-t timeout] ["+cmds+"] <PV names...>");
+		//String cmds = String.join("|", commands.keySet());
+		
+		StringBuilder cmb = new StringBuilder();
+		Iterator<String> iter = commands.keySet().iterator();
+		while(iter.hasNext()) {
+			cmb.append(iter.next());
+			if(iter.hasNext())
+				cmb.append("|");
+		}
+		
+		
+		System.out.println("Usage: <prog> [-v] [-t timeout] ["+cmb.toString()+"] <PV names...>");
 		System.exit(1);
 	}
 
