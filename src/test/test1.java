@@ -4,8 +4,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import yascaif.CA;
+import yascaif.PValue;
 import yascaif.TimeMe;
-import yascaif.wrapper.DoubleWrapper;
 
 public class test1 {
 
@@ -26,18 +26,18 @@ public class test1 {
 		}
 
 		try(CA ca = new CA()) {
-			double val;
+			Object val;
 			try(TimeMe x = new TimeMe("Fetch 1")) {
 				val = ca.getDouble("TST:N:Samp-SP");
 			}
-			System.out.printf("Value is %f%n", val);
+			System.out.printf("Value is %s%n", val);
 
 			try(TimeMe x = new TimeMe("Fetch 2")) {
 				val = ca.getDouble("TST:N:Samp-SP");
 			}
-			System.out.printf("Value is still %f%n", val);
+			System.out.printf("Value is still %s%n", val);
 
-			DoubleWrapper v = ca.getDoubleM("TST:N:Samp-SP");
+			PValue v = ca.getDoubleM("TST:N:Samp-SP");
 			System.out.print(v.toString());
 
 		} catch(Exception e){

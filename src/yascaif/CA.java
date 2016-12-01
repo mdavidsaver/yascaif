@@ -25,9 +25,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import yascaif.wrapper.DoubleWrapper;
-import yascaif.wrapper.IntegerWrapper;
-
 import com.cosylab.epics.caj.CAJChannel;
 
 /** Wrapper around JCA/CAJ meant to be used
@@ -199,47 +196,23 @@ public class CA implements AutoCloseable {
 
 	// Get only value
 
-	public double getDouble(String name)
-	{
-		double[] ret = getDouble(name, 1);
-		assert ret.length==1;
-		return ret[0];
-	}
-
-	public double[] getDouble(String name, int count)
-	{
-		DBR data = getDBR(name, DBRType.STS_DOUBLE, count);
-		STS sts = (STS)data;
-		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("INVALID_ALARM active on PV");
-		return (double[])data.getValue();
-	}
-
-	public int getInt(String name)
-	{
-		int[] ret = getInt(name, 1);
-		assert ret.length==1;
-		return ret[0];
-	}
-
-	public int[] getInt(String name, int count)
-	{
-		DBR data = getDBR(name, DBRType.STS_INT, count);
-		STS sts = (STS)data;
-		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("INVALID_ALARM active on PV");
-		return (int[])data.getValue();
-	}
+	public final Object getDouble(String name)            { return read(name); }
+	public final Object getDouble(String name, int count) { return read(name); }
+	public final Object getInt(String name)               { return read(name); }
+	public final Object getInt(String name, int count)    { return read(name); }
 
 	public long getUInt(String name)
 	{
 		// long -> int does sign extension, which we don't want here
-		return 0xffffffffl & (long)getInt(name);
+		DBR dbr = getDBR(name, DBRType.TIME_INT, 1);
+		int[] sv = (int[])dbr.getValue();
+		return 0xffffffffl & sv[0];
 	}
 
 	public long[] getUInt(String name, int count)
 	{
-		int[] sv = getInt(name, count);
+		DBR dbr = getDBR(name, DBRType.TIME_INT, count);
+		int[] sv = (int[])dbr.getValue();
 		long[] ret = new long[sv.length];
 		for(int i=0; i<sv.length; i++) {
 			ret[i] = 0xffffffffl & (long)sv[i];
@@ -249,113 +222,25 @@ public class CA implements AutoCloseable {
 
 	// get value and metadata (alarm and timestamp)
 
-	public DoubleWrapper getDoubleM(String name)
-	{
-		return getDoubleM(name, 1);
-	}
+	public PValue getDoubleM(String name)            { return readM(name); }
+	public PValue getDoubleM(String name, int count) { return readM(name); }
+	public PValue getIntM(String name)               { return readM(name); }
+	public PValue getIntM(String name, int count)    { return readM(name); }
 
-	public DoubleWrapper getDoubleM(String name, int count)
-	{
-		DBR data = getDBR(name, DBRType.TIME_DOUBLE, count);
-		STS sts = (STS)data;
-		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("INVALID_ALARM active on PV");
-		return new DoubleWrapper(this, data);
-	}
-
-	public IntegerWrapper getIntM(String name)
-	{
-		return getIntM(name, 1);
-	}
-
-	public IntegerWrapper getIntM(String name, int count)
-	{
-		DBR data = getDBR(name, DBRType.TIME_INT, count);
-		STS sts = (STS)data;
-		if(sts.getSeverity()==Severity.INVALID_ALARM)
-			throw new RuntimeException("INVALID_ALARM active on PV");
-		return new IntegerWrapper(this, data);
-	}
 
 	// put value
 
-	public void putDouble(String name, double val)
-	{
-		putDouble(name, val, false);
-	}
+	public void putDouble(String name, Object val)               { write(name, val, false); }
+	public void putDouble(String name, Object val, boolean wait) { write(name, val, wait); }
+	public void putInt(String name, Object val)                  { write(name, val, false); }
+	public void putInt(String name, Object val, boolean wait)    { write(name, val, wait); }
 
-	public void putDouble(String name, double val, boolean wait)
-	{
-		double[] arr = new double[]{val};
-		putDouble(name, arr, wait);
-	}
+	public void putUInt(String name, long val)                   { write(name, (int)val, false); }
 
-	public void putDouble(String name, double[] val)
-	{
-		putDouble(name, val, false);
-	}
+	public void putUInt(String name, long val, boolean wait)     { write(name, (int)val, wait); }
 
-	public void putDouble(String name, double[] val, boolean wait)
-	{
-		putDBR(name, DBRType.DOUBLE, val.length, val, wait);
-	}
-
-	public void putInt(String name, int val)
-	{
-		putInt(name, val, false);
-	}
-
-	public void putInt(String name, int val, boolean wait)
-	{
-		int[] arr = new int[]{val};
-		putInt(name, arr, wait);
-	}
-
-	public void putInt(String name, int[] val)
-	{
-		putInt(name, val, false);
-	}
-
-	public void putInt(String name, int[] val, boolean wait)
-	{
-		putDBR(name, DBRType.INT, val.length, val, wait);
-	}
-
-	public void putUInt(String name, long val)
-	{
-		putUInt(name, val, false);
-	}
-
-	public void putUInt(String name, long val, boolean wait)
-	{
-		int[] arr = new int[]{(int)val};
-		putInt(name, arr, wait);
-	}
-
-	public void putUInt(String name, long[] val)
-	{
-		putUInt(name, val, false);
-	}
-
-	public void putUInt(String name, long[] val, boolean wait)
-	{
-		int[] pval = new int[val.length];
-		for(int i=0; i<val.length; i++) {
-			pval[i] = (int)val[i];
-		}
-		putDBR(name, DBRType.INT, val.length, pval, wait);
-	}
-
-	public void putString(String name, String val)
-	{
-		putString(name, val, false);
-	}
-
-	public void putString(String name, String val, boolean wait)
-	{
-		String[] arr = new String[]{val};
-		putDBR(name, DBRType.STRING, 1, arr, wait);
-	}
+	public void putString(String name, String val)               { write(name, val, false); }
+	public void putString(String name, String val, boolean wait) { write(name, val, wait); }
 	
 	public Monitor monitor(String name)
 	{
@@ -448,18 +333,6 @@ public class CA implements AutoCloseable {
 	@Override
 	public void close()
 	{
-		finalize();
-	}
-
-	/** Alias for close() */
-	public void destroy()
-	{
-		finalize();
-	}
-
-	@Override
-	protected void finalize()
-	{
 		if(ctxt!=null) {
 			Map<String, CAJChannel> cmap;
 			synchronized (this) {
@@ -476,6 +349,18 @@ public class CA implements AutoCloseable {
 			ctxt.dispose();
 			ctxt=null;
 		}
+	}
+
+	/** Alias for close() */
+	public void destroy()
+	{
+		close();
+	}
+
+	@Override
+	protected void finalize()
+	{
+		close();
 	}
 
 	// Some helper methods (not required)

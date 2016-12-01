@@ -1,10 +1,11 @@
 package test;
 
+import java.lang.reflect.Array;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import yascaif.CA;
-import yascaif.wrapper.DoubleWrapper;
+import yascaif.PValue;
 
 public class test2 {
 
@@ -14,10 +15,10 @@ public class test2 {
 		CA.setVerbose(false);
 		try(CA ca = new CA()) {
 
-			DoubleWrapper val;
+			PValue val;
 			
 			val = ca.getDoubleM("TST:Raw0:Data-I", -1);
-			System.out.printf("Before time %f count %d%n", val.time(), val.value().length);
+			System.out.printf("Before time %f count %d%n", val.getTime(), Array.getLength(val.getValue()));
 
 			System.out.println("Set RAW mode");
 			ca.putString("TST:Mode:Samp-Sel", "Raw");
@@ -30,7 +31,7 @@ public class test2 {
 			Thread.sleep(1000); // ugly, will do better
 
 			val = ca.getDoubleM("TST:Raw0:Data-I", -1);
-			System.out.printf("After time %f count %d%n", val.time(), val.value().length);
+			System.out.printf("After time %f count %d%n", val.getTime(), Array.getLength(val.getValue()));
 		} catch(Exception e){
 			L.log(Level.SEVERE, "error", e);
 			System.exit(1);
