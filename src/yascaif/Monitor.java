@@ -23,7 +23,7 @@ public class Monitor implements AutoCloseable {
 	{
 		void Monitor(PValue data);
 	}
-	
+
 	final CAJChannel chan;
 	MListen delegate;
 	// last value received
@@ -67,12 +67,16 @@ public class Monitor implements AutoCloseable {
 		}
 	}
 
+	public String getName() { return chan.getName(); }
+
 	/** Set max. number of queued events */
-	public void setCapcity(int c)
+	public void setCapacity(int c)
 	{
 		if(c<1) c=1;
 		capacity = c;
 	}
+
+	public int getCapacity() { return capacity; }
 
 	/** timeout<0 disables timeout
 	 *  timeout==0 polls w/o blocking
@@ -82,7 +86,9 @@ public class Monitor implements AutoCloseable {
 	{
 		this.timeout = timeout;
 	}
-	
+
+	public double getTimeout() { return timeout; }
+
 	/** Remove all queued events */
 	public void clear()
 	{
@@ -103,9 +109,9 @@ public class Monitor implements AutoCloseable {
 		else if(timeout==0.0)
 			return queue.pollFirst(); // poll, return null if empty
 		else
-			return queue.pollFirst((long)(timeout/1000.0), TimeUnit.MILLISECONDS);
+			return queue.pollFirst((long)(timeout*1000.0), TimeUnit.MILLISECONDS);
 	}
-	
+
 	@Override
 	protected void finalize() throws Throwable {
 		close();
@@ -119,8 +125,8 @@ public class Monitor implements AutoCloseable {
 		listeners.remove(l);
 	}
 
-	
-	
+
+
 	private void notifyEvent(PValue evt) {
 		while(queue.size()>capacity-1) {
 			queue.removeLast();
@@ -140,7 +146,7 @@ public class Monitor implements AutoCloseable {
 			}
 		}
 	}
-	
+
 	private class MListen implements ConnectionListener,
 									 gov.aps.jca.event.MonitorListener {
 		gov.aps.jca.Monitor mon;
@@ -161,7 +167,7 @@ public class Monitor implements AutoCloseable {
 				}
 			}
 		}
-		
+
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
 			Monitor.L.fine("Connection state changed "+chan.getName()+" "+Boolean.toString(ev.isConnected()));
@@ -176,7 +182,7 @@ public class Monitor implements AutoCloseable {
 				try {
 					Monitor.L.fine("Subscribe to "+chan.getName());
 					mon = chan.addMonitor(dt, 0,
-							gov.aps.jca.Monitor.VALUE|gov.aps.jca.Monitor.ALARM, 
+							gov.aps.jca.Monitor.VALUE|gov.aps.jca.Monitor.ALARM,
 							this);
 					chan.getContext().flushIO();
 				} catch (Exception e) {
@@ -185,9 +191,9 @@ public class Monitor implements AutoCloseable {
 			} else if(mon!=null) {
 				clear();
 			}
-			
+
 		}
-	
+
 		@Override
 		public void monitorChanged(MonitorEvent ev) {
 			Monitor.L.fine("Monitor event for "+chan.getName());
@@ -199,7 +205,7 @@ public class Monitor implements AutoCloseable {
 				Monitor.L.log(Level.WARNING, "Failed to translate/notify for "+chan.getName(), e);
 			}
 		}
-		
+
 	}
 
 }

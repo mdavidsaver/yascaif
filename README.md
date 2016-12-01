@@ -1,6 +1,11 @@
 Yet Another Simple/Stupid Channel Access InterFace
 ==================================================
 
+Beware, using yascaif in MATLAB is likely making use
+of undocumented (unsupported) MATLAB features.
+This is tested with 2016a, and will likely work back to ~2010 release,
+but may be broken by changes in future releases.
+
 Setup
 -----
 
@@ -39,6 +44,8 @@ Method names are read/write to a clashing with ```.get``` automagically added by
 ```matlab
 val = ca.read('pv:name')
 ca.write('pv:name', val+1)
+% or to put and wait for server completion notification
+ca.write('pv:name', val+1, true)
 ```
 
 Get with metadata

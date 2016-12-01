@@ -29,10 +29,10 @@ import com.cosylab.epics.caj.CAJChannel;
 
 /** Wrapper around JCA/CAJ meant to be used
  *  in an interactive shell-like environment.
- * 
+ *
  *  Each instance of this class maintains an independent Context
  *  (set of connected PVs).
- *  
+ *
  *  All blocking operations respect setTimeout(), which defaults
  *  to 2 seconds.
  */
@@ -85,9 +85,9 @@ public class CA implements AutoCloseable {
 		}
 		return chan;
 	}
-	
+
 	/** Construct a new CA client context.
-	 * 
+	 *
 	 * Configuration is taken from the process environment if any
 	 * environment variables beginning with "EPICS_CA_" are set.
 	 * Otherwise the CAJ/JCA Java properties are used.
@@ -126,7 +126,7 @@ public class CA implements AutoCloseable {
 	}
 
 	/** Construct a new CA client context with the given configuration
-	 * 
+	 *
 	 * Ignores any CA environment variables.  Overrides java property settings
 	 * for max array bytes, address list, and auto address list.
 	 * Other java properties will be used.
@@ -161,7 +161,7 @@ public class CA implements AutoCloseable {
 			ret = timeout;
 			timeout = newto;
 		}
-		return ret;
+		return ret/1000.0;
 	}
 
 	public static void setVerbose(boolean b)
@@ -215,7 +215,7 @@ public class CA implements AutoCloseable {
 		int[] sv = (int[])dbr.getValue();
 		long[] ret = new long[sv.length];
 		for(int i=0; i<sv.length; i++) {
-			ret[i] = 0xffffffffl & (long)sv[i];
+			ret[i] = 0xffffffffl & sv[i];
 		}
 		return ret;
 	}
@@ -241,13 +241,13 @@ public class CA implements AutoCloseable {
 
 	public void putString(String name, String val)               { write(name, val, false); }
 	public void putString(String name, String val, boolean wait) { write(name, val, wait); }
-	
+
 	public Monitor monitor(String name)
 	{
 		CAJChannel chan = lookup(name);
 		return new Monitor(chan);
 	}
-	
+
 	/* map type to DBR code, also constitutes set of acceptable types */
 	static final Map<Class<?>, DBRType> puttype = new HashMap<>();
 	static {
@@ -266,10 +266,10 @@ public class CA implements AutoCloseable {
 	}
 
 	/** Issue a CA Put operation
-	 * 
+	 *
 	 * Value may be a scalar String or primitive (byte, short, int, float, or long).
 	 * Arrays of allows scalars are also accepted.
-	 * 
+	 *
 	 * @param name PV name
 	 * @param val Value to put.  A String, primitive, or array of primitive
 	 * @param wait Whether to request, and wait for, completion notification
@@ -279,7 +279,7 @@ public class CA implements AutoCloseable {
 		DBRType dtype;
 		int count;
 		Class<?> klass = val.getClass();
-		
+
 		if(klass.isArray()) {
 			count = Array.getLength(val);
 		} else {
@@ -296,10 +296,10 @@ public class CA implements AutoCloseable {
 		if(dtype==null) {
 			throw new RuntimeException("Can't translate "+klass.getName()+" to CA compatible type");
 		}
-		
+
 		putDBR(name, dtype, count, val, wait);
 	}
-	
+
 	public PValue readM(String pvname)
 	{
 		DBR dbr = getDBR(pvname, null, -1);
@@ -326,7 +326,7 @@ public class CA implements AutoCloseable {
 		}
 		return ret;
 	}
-	
+
 	// Methods for full cleanup
 
 	/** Close out all channels */
@@ -419,7 +419,7 @@ public class CA implements AutoCloseable {
 	// Generic versions of get*() and put*()
 
 	/** Fetch the value of a PV
-	 * 
+	 *
 	 * @param name PV name
 	 * @param dtype Requested DBRType or null to get the native type
 	 * @param count Requested # of elements or -1 to get the max
@@ -431,7 +431,7 @@ public class CA implements AutoCloseable {
 		try {
 			CAJChannel ch = lookup(name);
 			try(Getter get = new Getter(ch, dtype, count)) {
-	
+
 				long now = System.currentTimeMillis(),
 						end = now+timeout;
 				synchronized (get) {
@@ -440,14 +440,14 @@ public class CA implements AutoCloseable {
 						now = System.currentTimeMillis();
 					}
 				}
-	
+
 				if(!get.done)
 					throw new RuntimeException("timeout");
 				else if(get.bad!=null)
 					throw get.bad;
 				else if(!get.status.isSuccessful())
 					throw new RuntimeException("CA Error "+get.status.toString());
-	
+
 				assert get.data!=null;
 				return get.data;
 			}
@@ -457,7 +457,7 @@ public class CA implements AutoCloseable {
 	}
 
 	/** Fetch the value of several PVs
-	 * 
+	 *
 	 * @param names PV names
 	 * @param dtype Requested DBRType for all PVs or null to get the native type of each PV
 	 * @param count Requested # of elements for all PVs or -1 to get the max of each PV
@@ -510,7 +510,7 @@ public class CA implements AutoCloseable {
 
 
 	/** Put value to PV
-	 * 
+	 *
 	 * @param name PV name
 	 * @param dtype
 	 * @param count
@@ -526,14 +526,14 @@ public class CA implements AutoCloseable {
 
 				long now = System.currentTimeMillis(),
 						end = now+timeout;
-	
+
 				synchronized (putter) {
 					while(!putter.done && now<end) {
 						putter.wait(end-now);
 						now = System.currentTimeMillis();
 					}
 				}
-	
+
 				if(!putter.done)
 					throw new RuntimeException("timeout");
 				else if(putter.bad!=null)
@@ -560,7 +560,7 @@ public class CA implements AutoCloseable {
 		// maybe handles CLASS_NAME and similar?
 		promotemap.put(DBRType.UNKNOWN, DBRType.TIME_STRING);
 	}
-	
+
 	// Helper for one-shot get/put operations
 	private abstract class OnConn implements ConnectionListener, AutoCloseable
 	{
@@ -577,7 +577,7 @@ public class CA implements AutoCloseable {
 		public CAStatus status = CAStatus.IOINPROGESS;
 		public DBR data;
 		public Exception bad;
-		
+
 		OnConn(CAJChannel ch, DBRType dt, int dc) {
 			chan = ch;
 			dtype = dt;
@@ -595,7 +595,7 @@ public class CA implements AutoCloseable {
 				}
 			}
 		}
-		
+
 		protected void doConnect()
 		{
 			synchronized (chan) {
@@ -607,7 +607,7 @@ public class CA implements AutoCloseable {
 				}
 			}
 		}
-		
+
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
 			if(done) return;
