@@ -8,6 +8,15 @@ Place jar(s) in matlab class path.
 To make use of monitor callbacks, jars must be in matlab _static_ class path.
 Basic blocking calls will work if in dynamic class path.
 
+Use [pre-build jars](https://github.com/mdavidsaver/yascaif/releases)
+or:
+
+```
+git clone https://github.com/mdavidsaver/yascaif.git
+cd yascaif
+ant
+```
+
 Basic Usage
 -----------
 
@@ -42,9 +51,19 @@ time = M.getTime % double posix timestamp
 ```
 
 Subscribe for monitor updates
+Deliver as callbacks.
 
 ```matlab
 mon = ca.monitor('pv:name')
 mon = handle(mon, 'CallbackProperties') % needed by matlab >=2014a
 set(mon, 'MonitorCallback', @(h,e)disp(e.getValue)) % e is same wrapper as readM()
+```
+
+Deliver via FIFO.
+
+```matlab
+mon = ca.monitor('pv:name')
+mon.setCapacity(4)   % max. queue size (default 1)
+mon.setTimeout(10.0) % or -1 to disable (default 5.0)
+M = mon.waitFor() % wait for next update
 ```

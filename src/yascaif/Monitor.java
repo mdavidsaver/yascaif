@@ -8,6 +8,9 @@ import gov.aps.jca.event.MonitorEvent;
 import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.List;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,8 +26,12 @@ public class Monitor implements AutoCloseable {
 	
 	final CAJChannel chan;
 	MListen delegate;
+	// last value received
 	PValue last_update;
-	
+	final BlockingDeque<PValue> queue = new LinkedBlockingDeque<>();
+	int capacity = 1;
+	double timeout = 5.0;
+
 	final List<MonitorListener> listeners  = new ArrayList<>();
 
 	Monitor(CAJChannel ch)
@@ -38,13 +45,17 @@ public class Monitor implements AutoCloseable {
 			throw new RuntimeException("Failed to listen for "+chan.getName(), e);
 		}
 	}
-	
+
+	/** Cancel subscription */
 	@Override
 	public void close() throws Exception {
 		MListen d;
 		synchronized (this) {
 			d = delegate;
 			delegate = null;
+			if(d!=null) {
+				listeners.clear();
+			}
 		}
 		if(d!=null) {
 			try {
@@ -54,6 +65,45 @@ public class Monitor implements AutoCloseable {
 				throw new RuntimeException("Failed to unlisten for "+chan.getName(), e);
 			}
 		}
+	}
+
+	/** Set max. number of queued events */
+	public void setCapcity(int c)
+	{
+		if(c<1) c=1;
+		capacity = c;
+	}
+
+	/** timeout<0 disables timeout
+	 *  timeout==0 polls w/o blocking
+	 *  timeout>0 blocks for up to 'timeout' seconds.
+	 */
+	public void setTimeout(double timeout)
+	{
+		this.timeout = timeout;
+	}
+	
+	/** Remove all queued events */
+	public void clear()
+	{
+		queue.clear();
+	}
+
+	/** wait for monitor update w/ default timeout */
+	public PValue waitFor() throws InterruptedException
+	{
+		return waitFor(timeout);
+	}
+
+	/** wait for monitor update w/ specified timeout */
+	public PValue waitFor(double timeout) throws InterruptedException
+	{
+		if(timeout<0.0)
+			return queue.takeFirst(); // block forever
+		else if(timeout==0.0)
+			return queue.pollFirst(); // poll, return null if empty
+		else
+			return queue.pollFirst((long)(timeout/1000.0), TimeUnit.MILLISECONDS);
 	}
 	
 	@Override
@@ -69,7 +119,15 @@ public class Monitor implements AutoCloseable {
 		listeners.remove(l);
 	}
 
+	
+	
 	private void notifyEvent(PValue evt) {
+		while(queue.size()>capacity-1) {
+			queue.removeLast();
+		}
+		// always place last received update
+		queue.addLast(evt);
+
 		final List<MonitorListener> temp;
 		synchronized (this) {
 			temp  = new ArrayList<>(listeners);
