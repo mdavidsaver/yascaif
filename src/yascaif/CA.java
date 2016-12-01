@@ -568,7 +568,7 @@ public class CA implements AutoCloseable {
 	}
 
 	// Helper for one-shot get/put operations
-	private abstract class OnConn implements ConnectionListener, AutoCloseable
+	static abstract class OnConn implements ConnectionListener, AutoCloseable
 	{
 		protected CAJChannel chan;
 		// Have we notified yet?
@@ -669,7 +669,7 @@ public class CA implements AutoCloseable {
 		protected abstract void onConnect() throws Exception;
 	}
 
-	private class Getter extends OnConn implements GetListener
+	static class Getter extends OnConn implements GetListener
 	{
 
 		public Getter(CAJChannel chan, DBRType t, int c) {
@@ -697,7 +697,7 @@ public class CA implements AutoCloseable {
 		}
 	}
 
-	private class Putter extends OnConn implements PutListener
+	static class Putter extends OnConn implements PutListener
 	{
 		private Object val;
 		private boolean wait;

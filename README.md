@@ -6,17 +6,20 @@ of undocumented (unsupported) MATLAB features.
 This is tested with 2016a, and will likely work back to ~2010 release,
 but may be broken by changes in future releases.
 
+Requires Java >=1.7
+
 Setup
 -----
 
 Place jar(s) in matlab class path.
-To make use of monitor callbacks, jars must be in matlab _static_ class path.
-Basic blocking calls will work if in dynamic class path.
+To make use of monitor callbacks with handles,
+jars must be in matlab _static_ class path (eg. ```[prefdir '/javaclasspath.txt']```).
+Basic blocking calls will work if in the dynamic class path.
 
 Use [pre-build jars](https://github.com/mdavidsaver/yascaif/releases)
 or:
 
-```
+```sh
 git clone https://github.com/mdavidsaver/yascaif.git
 cd yascaif
 ant
@@ -73,4 +76,14 @@ mon = ca.monitor('pv:name')
 mon.setCapacity(4)   % max. queue size (default 1)
 mon.setTimeout(10.0) % or -1 to disable (default 5.0)
 M = mon.waitFor() % wait for next update
+```
+
+CLI test
+--------
+
+For testing and troubleshooting a CLI is provided.
+
+```sh
+java -jar bin/yascaif-bundle-0.4a.jar
+Usage: <prog> [-v] [-t timeout] [get|monitor|put] <PV names...>
 ```

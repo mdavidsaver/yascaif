@@ -15,14 +15,14 @@ import gov.aps.jca.dbr.Severity;
 import gov.aps.jca.dbr.TIME;
 import gov.aps.jca.dbr.TimeStamp;
 
-/** Holder for value, time stamp, and alarm severity
+/** Immutable holder for value, time stamp, and alarm severity
  */
 public class PValue extends EventObject {
 	private static final long serialVersionUID = -6262861871811251881L;
 
-	Object value;
-	int severity;
-	TimeStamp time;
+	final Object value;
+	final int severity;
+	final TimeStamp time;
 
 	public PValue(Object src, Object val, int sevr, TimeStamp ts) {
 		super(src);

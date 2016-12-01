@@ -1,8 +1,7 @@
 package test;
 
-import gov.aps.jca.dbr.DBR;
-import gov.aps.jca.dbr.DBRType;
 import yascaif.CA;
+import yascaif.PValue;
 
 public class test3 {
 
@@ -11,7 +10,7 @@ public class test3 {
 		CA.setVerbose(false);
 		CA e = new CA();
 
-		DBR[] data = e.getDBRs(args, DBRType.STRING, 1);
+		PValue[] data = e.readManyM(args);
 
 		for(int i=0; i<args.length; i++) {
 			System.out.print(args[i]+" : ");

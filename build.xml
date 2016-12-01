@@ -3,7 +3,7 @@
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.7"/>
     <property name="source" value="1.7"/>
-    <property name="ourver" value="0.3"/>
+    <property name="ourver" value="0.4a"/>
 	<property name="jcaver" value="2.3.6"/>
 	<property name="cajver" value="1.1.15"/>
 	<property name="jcahash" value="69027e1aa1399db2f3f79d5aa2e5b60f39802bef662ff478037fca44e0a66486"/>
@@ -87,7 +87,7 @@
 			<fileset refid="our-src"/>
 			<fileset refid="boiler"/>
 			<manifest>
-				<attribute name="Main-Class" value="yascaif.cli.test1"/>
+				<attribute name="Main-Class" value="yascaif.cli.CLI"/>
 			</manifest>
 		</jar>
 	</target>
