@@ -35,7 +35,8 @@ public class CheckHash extends Task {
 
 	public void setHash(String s)
 	{
-		thehash = new BigInteger(s, 16);
+		if(s.length()>0)
+			thehash = new BigInteger(s, 16);
 	}
 
 	public void setAlgo(String s)
@@ -46,6 +47,10 @@ public class CheckHash extends Task {
 	@Override
 	public void execute()
 	{
+		if(thehash==null) {
+			System.out.println("Skip "+tohash.toString());
+			return;
+		}
 		try {
 			MessageDigest mac = MessageDigest.getInstance(algo);
 
