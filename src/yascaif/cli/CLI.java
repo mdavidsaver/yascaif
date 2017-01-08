@@ -17,6 +17,7 @@ public class CLI {
 	static {
 		commands.put("get", Get.class);
 		commands.put("put", Set.class);
+		commands.put("putarr", SetArray.class);
 		commands.put("monitor", Mon.class);
 	}
 
