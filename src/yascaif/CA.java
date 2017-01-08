@@ -328,7 +328,8 @@ public class CA implements AutoCloseable {
 		DBR[] dbrs = getDBRs(names, null, -1);
 		PValue[] ret = new PValue[dbrs.length];
 		for(int i=0; i<dbrs.length; i++) {
-			ret[i] = new PValue(this, dbrs[i]);
+			if(dbrs[i]!=null)
+				ret[i] = new PValue(this, dbrs[i]);
 		}
 		return ret;
 	}

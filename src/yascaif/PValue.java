@@ -68,28 +68,32 @@ public class PValue extends EventObject {
 		StringBuilder b = new StringBuilder();
 		b.append(time.toMMDDYY());
 		b.append(" ");
-		int nelem = Array.getLength(value);
-		if(nelem==1) {
-			b.append(Array.get(value,0).toString());
-
-			if(severity!=0) {
-				b.append(" ");
-				b.append(Severity.forValue(severity).getName());
-			}
-
+		if(value==null) {
+			b.append("<no data>");
 		} else {
-			if(severity!=0) {
-				b.append(Severity.forValue(severity).getName());
-				b.append(" ");
+			int nelem = Array.getLength(value);
+			if(nelem==1) {
+				b.append(Array.get(value,0).toString());
+	
+				if(severity!=0) {
+					b.append(" ");
+					b.append(Severity.forValue(severity).getName());
+				}
+	
+			} else {
+				if(severity!=0) {
+					b.append(Severity.forValue(severity).getName());
+					b.append(" ");
+				}
+	
+				b.append("[");
+				for(int i=0; i<nelem; i++) {
+					b.append(Array.get(value, i));
+					if(i!=nelem-1)
+						b.append(", ");
+				}
+				b.append("]");
 			}
-
-			b.append("[");
-			for(int i=0; i<nelem; i++) {
-				b.append(Array.get(value, i));
-				if(i!=nelem-1)
-					b.append(", ");
-			}
-			b.append("]");
 		}
 		return b.toString();
 	}
