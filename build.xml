@@ -6,8 +6,10 @@
     <property name="ourver" value="0.4a"/>
 	<property name="jcaver" value="2.3.6"/>
 	<property name="cajver" value="1.1.15"/>
+	<property name="junitver" value="4.11"/>
 	<property name="jcahash" value="69027e1aa1399db2f3f79d5aa2e5b60f39802bef662ff478037fca44e0a66486"/>
 	<property name="cajhash" value="c6ca0d2d3f32d309ca6c6a93a185d5220669109ff5bf47ef9afb2bddf7b731cd"/>
+	<property name="junithash" value="90a8e1603eeca48e7e879f3afbc9560715322985f39a274f6f6070b43f9d06fe"/>
 
 	<target name="build-ant">
     	<mkdir dir="bin"/>
@@ -39,10 +41,22 @@
     	<get dest="lib/caj-${cajver}.jar" src="http://search.maven.org/remotecontent?filepath=org/epics/caj/${cajver}/caj-${cajver}.jar"/>
     </target>
 
-	<target name="check-jars" depends="jca,caj,build-ant">
+	<condition property="have-jnit">
+		<available file="lib/junit-${junitver}.jar" />
+	</condition>
+	<target name="junit-skip" if="have-junit">
+		<echo>Using existing junit</echo>
+	</target>
+    <target name="junit" depends="junit-skip" unless="have-junit">
+    	<mkdir dir="lib"/>
+    	<get dest="lib/junit-${junitver}.jar" src="https://repo1.maven.org/maven2/junit/junit/${junitver}/junit-${junitver}.jar"/>
+    </target>
+
+	<target name="check-jars" depends="jca,caj,junit,build-ant">
 		<taskdef name="check-hash" classname="ant.local.CheckHash" classpath="bin"/>
 		<check-hash algo="SHA-256" file="lib/jca-${jcaver}.jar" hash="${jcahash}"/>
 		<check-hash algo="SHA-256" file="lib/caj-${cajver}.jar" hash="${cajhash}"/>
+		<check-hash algo="SHA-256" file="lib/junit-${junitver}.jar" hash="${junithash}"/>
 	</target>
 
 	<target name="fetch" depends="check-jars"/>
@@ -50,6 +64,7 @@
 	<fileset dir="lib" id="ext-jars">
 	    <include name="jca-${jcaver}.jar"/>
 	    <include name="caj-${cajver}.jar"/>
+	    <include name="junit-${junitver}.jar"/>
 	</fileset>
 
     <path id="yascaif.classpath">
