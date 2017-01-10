@@ -49,12 +49,12 @@ public class CA implements AutoCloseable {
 		private String _addr_list;
 		private String _name_servers;
 		private long _max_bytes = 33554532;
-		Config() {}
-		Config useEnv(boolean v) { _useenv = v; return this; }
-		Config autoAddrList(boolean v) { _auto_addr_list = v; return this; }
-		Config addrList(String v) { _addr_list = v; return this; }
-		Config nameServers(String v) { _name_servers = v; return this; }
-		Config maxArrayBytes(long v) { _max_bytes = v; return this; }
+		public Config() {}
+		public Config useEnv(boolean v) { _useenv = v; return this; }
+		public Config autoAddrList(boolean v) { _auto_addr_list = v; return this; }
+		public Config addrList(String v) { _addr_list = v; return this; }
+		public Config nameServers(String v) { _name_servers = v; return this; }
+		public Config maxArrayBytes(long v) { _max_bytes = v; return this; }
 	}
 	private static Logger L = Logger.getLogger(CA.class.getName());
 
@@ -127,10 +127,13 @@ public class CA implements AutoCloseable {
 						Long.toString(c._max_bytes));
 			}
 
-			System.setProperty(cajname+".addr_list", c._addr_list);
+			if(c._addr_list!=null)
+				System.setProperty(cajname+".addr_list", c._addr_list);
+
 			System.setProperty(cajname+".auto_addr_list", c._auto_addr_list ? "true" : "false");
 
-			System.setProperty(cajname+".name_servers", c._name_servers);
+			if(c._name_servers!=null)
+				System.setProperty(cajname+".name_servers", c._name_servers);
 		}
 
 		JCALibrary jca = JCALibrary.getInstance();

@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import yascaif.CA;
+import yascaif.CA.Config;
 
 public class CLI {
 	private static final Logger L = Logger.getLogger("");
@@ -24,11 +25,10 @@ public class CLI {
 	private static String command;
 	private static List<String> PVs = new LinkedList<>();
 	private static double timeout = 2.0;
-	
+	private static Config conf = new Config().useEnv(true);
+
 	private static void usage()
 	{
-		//String cmds = String.join("|", commands.keySet());
-		
 		StringBuilder cmb = new StringBuilder();
 		Iterator<String> iter = commands.keySet().iterator();
 		while(iter.hasNext()) {
@@ -43,7 +43,7 @@ public class CLI {
 	}
 
 	private static void procArgs(String[] args) {
-		boolean settimo = false;
+		boolean settimo = false, setmax = false, setname = false;
 		for(String arg : args)
 		{
 			if(settimo) {
@@ -51,11 +51,27 @@ public class CLI {
 				timeout = Double.parseDouble(arg);
 				continue;
 				
+			} else if(setmax) {
+				setmax = false;
+				conf.useEnv(false);
+				conf.maxArrayBytes(Integer.parseInt(arg));
+				continue;
+
+			} else if(setname) {
+				setname = false;
+				conf.useEnv(false);
+				conf.nameServers(arg);
+				continue;
+
 			} else if(arg.startsWith("--")) {
 				arg = arg.substring(2);
 				
 				if(arg=="help")
 					usage();
+				else if(arg=="max-array-bytes")
+					setmax = true;
+				else if(arg=="name-servers")
+					setname = true;
 
 			} else if(arg.startsWith("-") && arg.length()==2) {
 				char O = arg.charAt(1);
@@ -113,7 +129,7 @@ public class CLI {
 			System.exit(1);
 		}
 
-		try(CA ca = new CA()) {
+		try(CA ca = new CA(conf)) {
 			ca.setTimeout(timeout);
 
 			cmd.process(ca, PVs);
