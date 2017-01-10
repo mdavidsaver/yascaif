@@ -268,17 +268,6 @@ public class CA implements AutoCloseable {
 		return new Monitor(chan);
 	}
 
-	/* map type to DBR code, also constitutes set of acceptable types */
-	static final Map<Class<?>, DBRType> puttype = new HashMap<>();
-	static {
-		puttype.put(Double.class, DBRType.DOUBLE);
-		puttype.put(Float.class, DBRType.FLOAT);
-		puttype.put(Integer.class, DBRType.INT);
-		puttype.put(Short.class, DBRType.SHORT);
-		puttype.put(Byte.class, DBRType.BYTE);
-		puttype.put(String.class, DBRType.STRING);
-	}
-
 	static final Map<Class<?>, Class<?>> unbox = new HashMap<>();
 	static {
 		unbox.put(Double.class,  double.class);
@@ -331,6 +320,17 @@ public class CA implements AutoCloseable {
 	public void write(String name, Object val)
 	{
 		write(name, val, false);
+	}
+
+	/* map type to DBR code, also constitutes set of acceptable types */
+	static final Map<Class<?>, DBRType> puttype = new HashMap<>();
+	static {
+		puttype.put(double.class, DBRType.DOUBLE);
+		puttype.put(float.class, DBRType.FLOAT);
+		puttype.put(int.class, DBRType.INT);
+		puttype.put(short.class, DBRType.SHORT);
+		puttype.put(byte.class, DBRType.BYTE);
+		puttype.put(String.class, DBRType.STRING);
 	}
 
 	/** Issue a CA Put operation
