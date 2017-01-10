@@ -43,6 +43,19 @@ import com.cosylab.epics.caj.CAJChannel;
  *  to 2 seconds.
  */
 public class CA implements AutoCloseable {
+	public static class Config {
+		private boolean _useenv = false;
+		private boolean _auto_addr_list = true;
+		private String _addr_list;
+		private String _name_servers;
+		private long _max_bytes = 33554532;
+		Config() {}
+		Config useEnv(boolean v) { _useenv = v; return this; }
+		Config autoAddrList(boolean v) { _auto_addr_list = v; return this; }
+		Config addrList(String v) { _addr_list = v; return this; }
+		Config nameServers(String v) { _name_servers = v; return this; }
+		Config maxArrayBytes(long v) { _max_bytes = v; return this; }
+	}
 	private static Logger L = Logger.getLogger(CA.class.getName());
 
 	private Context ctxt;
@@ -92,6 +105,42 @@ public class CA implements AutoCloseable {
 		return chan;
 	}
 
+	public CA(Config c)
+	{
+		// the following is inherently racy as configuration is done
+		// indirectly through global environment or properties. 
+
+		/* CAJ makes us decide whether to look for configuration in
+		 * the OS environment, or Java properties (but not both...)
+		 */
+		if(c._useenv) {
+			System.setProperty("jca.use_env", "true");
+			L.info("Using CA settings from process environment");
+		} else {
+			System.setProperty("jca.use_env", "false");
+			L.info("Using CA settings from Java properties");
+
+			if(c._max_bytes<128) {
+				L.warning("Ignoring max_array_bytes < 128 bytes");
+			} else {
+				System.setProperty(cajname+".max_array_bytes",
+						Long.toString(c._max_bytes));
+			}
+
+			System.setProperty(cajname+".addr_list", c._addr_list);
+			System.setProperty(cajname+".auto_addr_list", c._auto_addr_list ? "true" : "false");
+
+			System.setProperty(cajname+".name_servers", c._name_servers);
+		}
+
+		JCALibrary jca = JCALibrary.getInstance();
+		try {
+			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
+		} catch (CAException e) {
+			throw new RuntimeException("Failed to create JCA/CAJ context", e);
+		}
+	}
+
 	/** Construct a new CA client context.
 	 *
 	 * Configuration is taken from the process environment if any
@@ -100,35 +149,7 @@ public class CA implements AutoCloseable {
 	 */
 	public CA()
 	{
-		/* CAJ makes us decide whether to look for configuration in
-		 * the OS environment, or Java properties...
-		 * If any CA related environment variable are set, then assume
-		 * the environment is fully configured, otherwise use properties.
-		 */
-		boolean useenv = false;
-		for(String name : System.getenv().keySet())
-		{
-			if(name.startsWith("EPICS_CA_")) {
-				useenv = true;
-				L.fine(String.format(" %s=%s", name, System.getenv(name)));
-			}
-		}
-		if(useenv) {
-			System.setProperty("jca.use_env", "true");
-			L.info("Using CA settings from process environment");
-		} else {
-			L.info("Using CA settings from Java properties");
-			if(System.getProperty(cajname+".max_array_bytes")==null) {
-				L.info("Setting default max_array_bytes");
-				System.setProperty(cajname+".max_array_bytes", "33554532");
-			}
-		}
-		JCALibrary jca = JCALibrary.getInstance();
-		try {
-			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
-		} catch (CAException e) {
-			throw new RuntimeException("Failed to create JCA/CAJ context", e);
-		}
+		this(new Config());
 	}
 
 	/** Construct a new CA client context with the given configuration
@@ -139,21 +160,11 @@ public class CA implements AutoCloseable {
 	 */
 	public CA(long max_array_bytes, String addr_list, boolean auto_addr_list)
 	{
-		if(max_array_bytes<128) {
-			L.warning("Ignoring max_array_bytes < 128 bytes");
-		} else {
-			System.setProperty(cajname+".max_array_bytes",
-					Long.toString(max_array_bytes));
-		}
-		System.setProperty("jca.use_env", "false");
-		System.setProperty(cajname+".addr_list", addr_list);
-		System.setProperty(cajname+".auto_addr_list", auto_addr_list ? "true" : "false");
-		JCALibrary jca = JCALibrary.getInstance();
-		try {
-			ctxt = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
-		} catch (CAException e) {
-			throw new RuntimeException("Failed to create JCA/CAJ context", e);
-		}
+		this(new Config()
+			.maxArrayBytes(max_array_bytes)
+			.addrList(addr_list)
+			.autoAddrList(auto_addr_list)
+		);
 	}
 
 	/** Set operation timeout for subsequent get*() and put*() */
