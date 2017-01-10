@@ -41,7 +41,7 @@
     	<get dest="lib/caj-${cajver}.jar" src="http://search.maven.org/remotecontent?filepath=org/epics/caj/${cajver}/caj-${cajver}.jar"/>
     </target>
 
-	<condition property="have-jnit">
+	<condition property="have-junit">
 		<available file="lib/junit-${junitver}.jar" />
 	</condition>
 	<target name="junit-skip" if="have-junit">
@@ -49,7 +49,7 @@
 	</target>
     <target name="junit" depends="junit-skip" unless="have-junit">
     	<mkdir dir="lib"/>
-    	<get dest="lib/junit-${junitver}.jar" src="https://repo1.maven.org/maven2/junit/junit/${junitver}/junit-${junitver}.jar"/>
+    	<get dest="lib/junit-${junitver}.jar" src="http://search.maven.org/remotecontent?filepath=junit/junit/${junitver}/junit-${junitver}.jar"/>
     </target>
 
 	<target name="check-jars" depends="jca,caj,junit,build-ant">
