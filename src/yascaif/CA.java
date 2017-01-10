@@ -265,6 +265,54 @@ public class CA implements AutoCloseable {
 		puttype.put(String.class, DBRType.STRING);
 	}
 
+	static final Map<Class<?>, Class<?>> unbox = new HashMap<>();
+	static {
+		unbox.put(Double.class,  double.class);
+		unbox.put(Float.class,   float.class);
+		unbox.put(Integer.class, int.class);
+		unbox.put(Short.class,   short.class);
+		unbox.put(Byte.class,    char.class);
+	}
+
+	/* attempt to convert the provided object into an array of
+	 * a type which CA can write (primitive integer,
+	 * primitive floating point, or String).
+	 */
+	public static Object coerceWritable(Object val) {
+		int count;
+		Class<?> klass = val.getClass();
+
+		// ensure val is an array
+		if(klass.isArray()) {
+			count = Array.getLength(val);
+		} else {
+			// package scalar in size 1 array
+			count = 1;
+			Object aval = Array.newInstance(klass, 1);
+			Array.set(aval, 0, val);
+			val = aval;
+			klass = val.getClass();
+		}
+
+		Class<?> eklass = klass.getComponentType();
+
+		if(eklass!=String.class && !eklass.isPrimitive()) {
+			// unbox array values   eg. [Double] -> [double]
+
+			Class<?> utype = unbox.get(eklass);
+			if(utype==null)
+				throw new RuntimeException("Unable to coerce "+klass.getName()+" into CA writeable");
+
+			Object aval = Array.newInstance(utype, count);
+			for(int i=0; i<count; i++) {
+				Array.set(aval, i, Array.get(val, i));
+			}
+			val = aval;
+		}
+
+		return val;
+	}
+	
 	/** Shorthand for write(name, val, false) */
 	public void write(String name, Object val)
 	{
@@ -282,25 +330,16 @@ public class CA implements AutoCloseable {
 	 */
 	public void write(String name, Object val, boolean wait)
 	{
-		DBRType dtype;
-		int count;
+		val = coerceWritable(val);
+		int count = Array.getLength(val);
+
 		Class<?> klass = val.getClass();
 
-		if(klass.isArray()) {
-			count = Array.getLength(val);
-		} else {
-			// package scalar in size 1 array
-			count = 1;
-			Object aval = Array.newInstance(klass, 1);
-			Array.set(aval, 0, val);
-			val = aval;
-			klass = val.getClass();
-		}
-
-		dtype = puttype.get(klass.getComponentType());
+		Class<?> eklass = klass.getComponentType();
+		DBRType dtype = puttype.get(eklass);
 
 		if(dtype==null) {
-			throw new RuntimeException("Can't translate "+klass.getName()+" to CA compatible type");
+			throw new RuntimeException("Can't map "+klass.getName()+" to CA compatible type");
 		}
 		L.info("Put "+name+" as "+dtype.toString());
 
