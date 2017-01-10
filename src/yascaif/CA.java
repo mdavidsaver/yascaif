@@ -302,6 +302,7 @@ public class CA implements AutoCloseable {
 		if(dtype==null) {
 			throw new RuntimeException("Can't translate "+klass.getName()+" to CA compatible type");
 		}
+		L.info("Put "+name+" as "+dtype.toString());
 
 		putDBR(name, dtype, count, val, wait);
 	}

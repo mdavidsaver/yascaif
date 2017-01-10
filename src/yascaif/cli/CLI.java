@@ -104,7 +104,7 @@ public class CLI {
 			cmd = cls.getConstructor().newInstance();
 			assert cmd!=null;
 		} catch (Exception e) {
-			L.log(Level.SEVERE, "Find to instanciate", e);
+			L.log(Level.SEVERE, "Failed to instanciate", e);
 			System.exit(1);
 		}
 
@@ -115,8 +115,6 @@ public class CLI {
 
 		try(CA ca = new CA()) {
 			ca.setTimeout(timeout);
-
-			ca.connect(PVs.toArray(new String[0]));
 
 			cmd.process(ca, PVs);
 		}
