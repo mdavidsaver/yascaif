@@ -212,7 +212,7 @@ public class CA implements AutoCloseable {
 		// long -> int does sign extension, which we don't want here
 		DBR dbr = getDBR(name, DBRType.TIME_INT, 1);
 		int[] sv = (int[])dbr.getValue();
-		return 0xffffffffl & sv[0];
+		return 0xffffffffl & (long)sv[0];
 	}
 
 	public long[] getUInt(String name, int count)
@@ -221,7 +221,7 @@ public class CA implements AutoCloseable {
 		int[] sv = (int[])dbr.getValue();
 		long[] ret = new long[sv.length];
 		for(int i=0; i<sv.length; i++) {
-			ret[i] = 0xffffffffl & sv[i];
+			ret[i] = 0xffffffffl & (long)sv[i];
 		}
 		return ret;
 	}
@@ -473,7 +473,7 @@ public class CA implements AutoCloseable {
 	 * @return Returned data
 	 * @throws RuntimeError on timeout or server error
 	 */
-	public DBR getDBR(String name, DBRType dtype, int count)
+	private DBR getDBR(String name, DBRType dtype, int count)
 	{
 		try {
 			CAJChannel ch = lookup(name);
@@ -511,7 +511,7 @@ public class CA implements AutoCloseable {
 	 * @return Returned data array, entries may be null if the PV is not connected
 	 * @throws RuntimeError on timeout or server error
 	 */
-	public DBR[] getDBRs(String[] names, DBRType dtype, int count)
+	private DBR[] getDBRs(String[] names, DBRType dtype, int count)
 	{
 		CAJChannel[] chans = new CAJChannel[names.length];
 		Getter[] getters = new Getter[names.length];
@@ -565,7 +565,7 @@ public class CA implements AutoCloseable {
 	 * @param wait If true block until put is acknowledged by the server,
 	 *             false return as soon as put request is sent.
 	 */
-	public void putDBR(String name, DBRType dtype, int count, Object val, boolean wait)
+	private void putDBR(String name, DBRType dtype, int count, Object val, boolean wait)
 	{
 		try {
 			CAJChannel ch = lookup(name);
@@ -609,7 +609,7 @@ public class CA implements AutoCloseable {
 	}
 
 	// Helper for one-shot get/put operations
-	static abstract class OnConn implements ConnectionListener, AutoCloseable
+	static private abstract class OnConn implements ConnectionListener, AutoCloseable
 	{
 		protected CAJChannel chan;
 		// Have we notified yet?
@@ -710,7 +710,7 @@ public class CA implements AutoCloseable {
 		protected abstract void onConnect() throws Exception;
 	}
 
-	static class Getter extends OnConn implements GetListener
+	static private class Getter extends OnConn implements GetListener
 	{
 
 		public Getter(CAJChannel chan, DBRType t, int c) {
@@ -738,7 +738,7 @@ public class CA implements AutoCloseable {
 		}
 	}
 
-	static class Putter extends OnConn implements PutListener
+	static private class Putter extends OnConn implements PutListener
 	{
 		private Object val;
 		private boolean wait;

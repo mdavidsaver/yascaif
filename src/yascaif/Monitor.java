@@ -30,15 +30,15 @@ public class Monitor implements AutoCloseable {
 		void Monitor(PValue data);
 	}
 
-	final CAJChannel chan;
-	MListen delegate;
+	private final CAJChannel chan;
+	private MListen delegate;
 	// last value received
-	PValue last_update;
-	final BlockingDeque<PValue> queue = new LinkedBlockingDeque<>();
-	int capacity = 1;
-	double timeout = 5.0;
+	private PValue last_update;
+	private final BlockingDeque<PValue> queue = new LinkedBlockingDeque<>();
+	private int capacity = 1;
+	private double timeout = 5.0;
 
-	final List<MonitorListener> listeners  = new ArrayList<>();
+	private final List<MonitorListener> listeners  = new ArrayList<>();
 
 	Monitor(CAJChannel ch)
 	{
