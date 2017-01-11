@@ -63,28 +63,29 @@ public class CLI {
 				conf.nameServers(arg);
 				continue;
 
-			} else if(arg.startsWith("--")) {
-				arg = arg.substring(2);
-				
-				if(arg=="help")
-					usage();
-				else if(arg=="max-array-bytes")
-					setmax = true;
-				else if(arg=="name-servers")
-					setname = true;
+			} else if(arg.equals("--help")) {
+				usage();
+				System.exit(1);
 
-			} else if(arg.startsWith("-") && arg.length()==2) {
-				char O = arg.charAt(1);
-				if(O=='v') {
-					L.setLevel(Level.FINEST);
-					continue;
-					
-				} else if(O=='h') {
-					usage();
-					
-				} else if(O=='t') {
-					settimo = true;
-				}
+			} else if(arg.equals("-h") || arg.equals("--max-array-bytes")) {
+				setmax = true;
+				continue;
+
+			} else if(arg.equals("--name-servers")) {
+				setname = true;
+				continue;
+
+			} else if(arg.equals("-v")) {
+				L.setLevel(Level.FINEST);
+				continue;
+
+			} else if(arg.equals("-t")) {
+				settimo = true;
+				continue;
+
+			} else if(arg.startsWith("-")) {
+				System.err.printf("Invalid argument '%s'%n", arg);
+				System.exit(1);
 
 			} else if(command==null) {
 				command = arg;
@@ -94,8 +95,10 @@ public class CLI {
 				PVs.add(arg);
 				continue;
 			}
-			
-			System.err.printf("Invalid argument '%s'%n", arg);
+		}
+
+		if(settimo || setname || setmax) {
+			System.err.println("Missing expected argument");
 			System.exit(1);
 		}
 
