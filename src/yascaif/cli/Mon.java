@@ -12,7 +12,7 @@ import yascaif.PValue;
 public class Mon implements Command {
 	private static final Logger L = Logger.getLogger("Monitor");
 	
-	class MonPrint implements MonitorListener {
+	private class MonPrint implements MonitorListener {
 		final String name;
 		MonPrint(String n) { name=n; }
 
@@ -25,6 +25,16 @@ public class Mon implements Command {
 
 	@Override
 	public void process(CA ca, List<String> PVs) {
+
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				synchronized(Mon.this) {
+					Mon.this.notify();
+				}
+			}
+		});
+
 		List<Monitor> mons = new ArrayList<>();
 
 		for(String pv : PVs) {
@@ -41,6 +51,12 @@ public class Mon implements Command {
 				// continue
 			}
 		}
+
+		for(Monitor mon : mons) {
+			mon.close();
+		}
+
+		L.info("Done");
 	}
 
 }

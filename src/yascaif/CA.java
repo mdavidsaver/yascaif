@@ -394,7 +394,9 @@ public class CA implements AutoCloseable {
 	@Override
 	public void close()
 	{
+		L.info("Closing context");
 		if(ctxt!=null) {
+			L.fine("Closing CA context");
 			Map<String, CAJChannel> cmap;
 			synchronized (this) {
 				cmap = new HashMap<>(channels); // copy
@@ -421,6 +423,7 @@ public class CA implements AutoCloseable {
 	@Override
 	protected void finalize()
 	{
+		L.info("finalize context");
 		close();
 	}
 

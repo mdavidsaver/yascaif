@@ -124,6 +124,7 @@ public class Monitor implements AutoCloseable {
 
 	@Override
 	protected void finalize() throws Throwable {
+		L.info("finalize context");
 		close();
 	};
 

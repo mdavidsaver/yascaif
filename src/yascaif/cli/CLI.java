@@ -137,5 +137,7 @@ public class CLI {
 
 			cmd.process(ca, PVs);
 		}
+
+		L.fine("Cleanup complete");
 	}
 }
