@@ -11,6 +11,7 @@ import gov.aps.jca.event.ConnectionEvent;
 import gov.aps.jca.event.ConnectionListener;
 import gov.aps.jca.event.MonitorEvent;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.List;
@@ -44,7 +45,8 @@ public class Monitor implements AutoCloseable {
 	{
 		chan = ch;
 		try {
-			delegate = new MListen();
+			// delegate has only a WeakReference to us
+			delegate = new MListen(this);
 
 			chan.addConnectionListenerAndFireIfConnected(delegate);
 		} catch (Exception e) {
@@ -54,7 +56,8 @@ public class Monitor implements AutoCloseable {
 
 	/** Cancel subscription */
 	@Override
-	public void close() throws Exception {
+	public void close() {
+		L.info("Closing Monitor");
 		MListen d;
 		synchronized (this) {
 			d = delegate;
@@ -64,6 +67,7 @@ public class Monitor implements AutoCloseable {
 			}
 		}
 		if(d!=null) {
+			L.fine("Remove Monitor listener");
 			try {
 				chan.removeConnectionListener(d);
 				d.clear();
@@ -153,11 +157,18 @@ public class Monitor implements AutoCloseable {
 		}
 	}
 
-	private class MListen implements ConnectionListener,
+	private static class MListen implements ConnectionListener,
 									 gov.aps.jca.event.MonitorListener {
 		gov.aps.jca.Monitor mon;
+		WeakReference<Monitor> owner;
+
+		private MListen(Monitor o) {
+			this.owner = new WeakReference<Monitor>(o);
+		}
 
 		void clear() {
+			Monitor o = owner.get();
+			if(o==null) return;
 			gov.aps.jca.Monitor m;
 			synchronized (this) {
 				m = mon;
@@ -166,33 +177,35 @@ public class Monitor implements AutoCloseable {
 			if(m!=null) {
 				try {
 					m.clear();
-					if(last_update!=null)
-						notifyEvent(PValue.makeDisconnect(this, last_update));
+					if(o.last_update!=null)
+						o.notifyEvent(PValue.makeDisconnect(this, o.last_update));
 				} catch (Exception e) {
-					Monitor.L.log(Level.WARNING, "Failed to clear subscription for "+chan.getName(), e);
+					Monitor.L.log(Level.WARNING, "Failed to clear subscription for "+o.chan.getName(), e);
 				}
 			}
 		}
 
 		@Override
 		public void connectionChanged(ConnectionEvent ev) {
-			Monitor.L.fine("Connection state changed "+chan.getName()+" "+Boolean.toString(ev.isConnected()));
+			Monitor o = owner.get();
+			if(o==null) return;
+			Monitor.L.fine("Connection state changed "+o.chan.getName()+" "+Boolean.toString(ev.isConnected()));
 			if(ev.isConnected()) {
-				DBRType dt = CA.promotemap.get(chan.getFieldType());
+				DBRType dt = CA.promotemap.get(o.chan.getFieldType());
 				if(dt==null) {
-					Monitor.L.warning("Channel "+chan.getName()+" has unsupported DBR ");
-					if(last_update!=null)
-						notifyEvent(PValue.makeDisconnect(this, last_update));
+					Monitor.L.warning("Channel "+o.chan.getName()+" has unsupported DBR ");
+					if(o.last_update!=null)
+						o.notifyEvent(PValue.makeDisconnect(this, o.last_update));
 				}
 
 				try {
-					Monitor.L.fine("Subscribe to "+chan.getName());
-					mon = chan.addMonitor(dt, 0,
+					Monitor.L.fine("Subscribe to "+o.chan.getName());
+					mon = o.chan.addMonitor(dt, 0,
 							gov.aps.jca.Monitor.VALUE|gov.aps.jca.Monitor.ALARM,
 							this);
-					chan.getContext().flushIO();
+					o.chan.getContext().flushIO();
 				} catch (Exception e) {
-					Monitor.L.log(Level.WARNING, "Failed to create subscription for "+chan.getName(), e);
+					Monitor.L.log(Level.WARNING, "Failed to create subscription for "+o.chan.getName(), e);
 				}
 			} else if(mon!=null) {
 				clear();
@@ -202,13 +215,15 @@ public class Monitor implements AutoCloseable {
 
 		@Override
 		public void monitorChanged(MonitorEvent ev) {
-			Monitor.L.fine("Monitor event for "+chan.getName());
+			Monitor o = owner.get();
+			if(o==null) return;
+			Monitor.L.fine("Monitor event for "+o.chan.getName());
 			try {
 				PValue pev = new PValue(this, ev.getDBR());
-				last_update = pev;
-				notifyEvent(pev);
+				o.last_update = pev;
+				o.notifyEvent(pev);
 			} catch (Exception e) {
-				Monitor.L.log(Level.WARNING, "Failed to translate/notify for "+chan.getName(), e);
+				Monitor.L.log(Level.WARNING, "Failed to translate/notify for "+o.chan.getName(), e);
 			}
 		}
 
