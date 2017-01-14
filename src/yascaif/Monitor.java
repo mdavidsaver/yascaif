@@ -219,7 +219,7 @@ public class Monitor implements AutoCloseable {
 			if(o==null) return;
 			Monitor.L.fine("Monitor event for "+o.chan.getName());
 			try {
-				PValue pev = new PValue(this, ev.getDBR());
+				PValue pev = new PValue(o, ev.getDBR());
 				o.last_update = pev;
 				o.notifyEvent(pev);
 			} catch (Exception e) {
