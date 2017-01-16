@@ -217,9 +217,9 @@ public class CA implements AutoCloseable {
 	// Get only value
 
 	public final Object getDouble(String name)            { return read(name); }
-	public final Object getDouble(String name, int count) { return read(name); }
+	public final Object getDouble(String name, int count) { return read(name, count); }
 	public final Object getInt(String name)               { return read(name); }
-	public final Object getInt(String name, int count)    { return read(name); }
+	public final Object getInt(String name, int count)    { return read(name, count); }
 
 	public long getUInt(String name)
 	{
@@ -243,9 +243,9 @@ public class CA implements AutoCloseable {
 	// get value and metadata (alarm and timestamp)
 
 	public PValue getDoubleM(String name)            { return readM(name); }
-	public PValue getDoubleM(String name, int count) { return readM(name); }
+	public PValue getDoubleM(String name, int count) { return readM(name, count); }
 	public PValue getIntM(String name)               { return readM(name); }
-	public PValue getIntM(String name, int count)    { return readM(name); }
+	public PValue getIntM(String name, int count)    { return readM(name, count); }
 
 
 	// put value
@@ -362,13 +362,23 @@ public class CA implements AutoCloseable {
 
 	public PValue readM(String pvname)
 	{
-		DBR dbr = getDBR(pvname, null, -1);
+		return readM(pvname, -1);
+	}
+
+	public PValue readM(String pvname, int count)
+	{
+		DBR dbr = getDBR(pvname, null, count);
 		return new PValue(this, dbr);
 	}
 
 	public Object read(String pvname)
 	{
-		DBR ret = getDBR(pvname, null, -1);
+		return read(pvname, -1);
+	}
+
+	public Object read(String pvname, int count)
+	{
+		DBR ret = getDBR(pvname, null, count);
 		if(ret.isSTS()) {
 			STS sts = (STS)ret;
 			if(sts.getSeverity()==Severity.INVALID_ALARM)
