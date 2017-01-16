@@ -770,6 +770,11 @@ public class CA implements AutoCloseable {
 
 		@Override
 		public void onConnect() throws Exception {
+			int maxcount = chan.getElementCount();
+			if(dcount>maxcount) {
+				throw new RuntimeException(String.format("Can't put %d elements to %s (max %d)",
+						dcount, chan.getName(), maxcount));
+			}
 			if(wait) {
 				chan.put(dtype, dcount, val, this);
 			} else {
