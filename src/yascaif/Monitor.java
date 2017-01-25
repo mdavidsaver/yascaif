@@ -43,6 +43,7 @@ public class Monitor implements AutoCloseable {
 	private final BlockingDeque<PValue> queue = new LinkedBlockingDeque<>();
 	private int capacity = 1;
 	private double timeout = 5.0;
+	private int mcount;
 
 	private final List<MonitorListener> listeners  = new ArrayList<>();
 
@@ -52,9 +53,10 @@ public class Monitor implements AutoCloseable {
 		return _allinst.size();
 	}
 
-	Monitor(CAJChannel ch)
+	Monitor(CAJChannel ch, int elements)
 	{
 		chan = ch;
+		mcount = elements;
 		try {
 			// delegate has only a WeakReference to us
 			delegate = new MListen(this);
@@ -213,7 +215,7 @@ public class Monitor implements AutoCloseable {
 
 				try {
 					Monitor.L.fine("Subscribe to "+o.chan.getName());
-					mon = o.chan.addMonitor(dt, 0,
+					mon = o.chan.addMonitor(dt, o.mcount,
 							gov.aps.jca.Monitor.VALUE|gov.aps.jca.Monitor.ALARM,
 							this);
 					o.chan.getContext().flushIO();

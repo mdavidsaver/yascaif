@@ -274,7 +274,13 @@ public class CA implements AutoCloseable {
 	public Monitor monitor(String name)
 	{
 		CAJChannel chan = lookup(name);
-		return new Monitor(chan);
+		return new Monitor(chan, 0);
+	}
+
+	public Monitor monitor(String name, int count)
+	{
+		CAJChannel chan = lookup(name);
+		return new Monitor(chan, count);
 	}
 
 	static final Map<Class<?>, Class<?>> unbox = new HashMap<>();
