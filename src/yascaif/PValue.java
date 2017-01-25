@@ -98,13 +98,13 @@ public class PValue extends EventObject {
 		return b.toString();
 	}
 
-	static PValue makeDisconnect(Object src, PValue prev)
+	static PValue makeDisconnect(Object src, DBR pval, TimeStamp ptime)
 	{
 		TimeStamp dtime = new TimeStamp(); // now
-		if(prev.time.GE(dtime)) {
+		if(ptime.GE(dtime)) {
 			// prevent non-monotonic disconnect time, which archivers might ignore...
-			dtime = TimeStamp.add(prev.time, 1e-9);
+			dtime = TimeStamp.add(ptime, 1e-9);
 		}
-		return new PValue(src, prev.value, 3, dtime);
+		return new PValue(src, pval, 3, dtime);
 	}
 }

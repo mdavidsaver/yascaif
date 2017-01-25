@@ -28,6 +28,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -105,6 +106,12 @@ public class CA implements AutoCloseable {
 		return chan;
 	}
 
+	private static final Map<CA, Integer> _allinst = new WeakHashMap<>();
+
+	public static int instanceCount() {
+		return _allinst.size();
+	}
+
 	public CA(Config c)
 	{
 		// the following is inherently racy as configuration is done
@@ -142,6 +149,8 @@ public class CA implements AutoCloseable {
 		} catch (CAException e) {
 			throw new RuntimeException("Failed to create JCA/CAJ context", e);
 		}
+
+		_allinst.put(this, 1);
 	}
 
 	/** Construct a new CA client context.

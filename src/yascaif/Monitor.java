@@ -6,7 +6,9 @@
  */
 package yascaif;
 
+import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
+import gov.aps.jca.dbr.TimeStamp;
 import gov.aps.jca.event.ConnectionEvent;
 import gov.aps.jca.event.ConnectionListener;
 import gov.aps.jca.event.MonitorEvent;
@@ -15,6 +17,8 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -34,12 +38,19 @@ public class Monitor implements AutoCloseable {
 	private final CAJChannel chan;
 	private MListen delegate;
 	// last value received
-	private PValue last_update;
+	private DBR last_value;
+	private TimeStamp last_time;
 	private final BlockingDeque<PValue> queue = new LinkedBlockingDeque<>();
 	private int capacity = 1;
 	private double timeout = 5.0;
 
 	private final List<MonitorListener> listeners  = new ArrayList<>();
+
+	private static final Map<Monitor, Integer> _allinst = new WeakHashMap<>();
+
+	public static int instanceCount() {
+		return _allinst.size();
+	}
 
 	Monitor(CAJChannel ch)
 	{
@@ -52,6 +63,7 @@ public class Monitor implements AutoCloseable {
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to listen for "+chan.getName(), e);
 		}
+		_allinst.put(this, 1);
 	}
 
 	/** Cancel subscription */
@@ -178,8 +190,8 @@ public class Monitor implements AutoCloseable {
 			if(m!=null) {
 				try {
 					m.clear();
-					if(o.last_update!=null)
-						o.notifyEvent(PValue.makeDisconnect(this, o.last_update));
+					if(o.last_value!=null)
+						o.notifyEvent(PValue.makeDisconnect(this, o.last_value, o.last_time));
 				} catch (Exception e) {
 					Monitor.L.log(Level.WARNING, "Failed to clear subscription for "+o.chan.getName(), e);
 				}
@@ -195,8 +207,8 @@ public class Monitor implements AutoCloseable {
 				DBRType dt = CA.promotemap.get(o.chan.getFieldType());
 				if(dt==null) {
 					Monitor.L.warning("Channel "+o.chan.getName()+" has unsupported DBR ");
-					if(o.last_update!=null)
-						o.notifyEvent(PValue.makeDisconnect(this, o.last_update));
+					if(o.last_value!=null)
+						o.notifyEvent(PValue.makeDisconnect(this, o.last_value, o.last_time));
 				}
 
 				try {
@@ -220,8 +232,9 @@ public class Monitor implements AutoCloseable {
 			if(o==null) return;
 			Monitor.L.fine("Monitor event for "+o.chan.getName());
 			try {
-				PValue pev = new PValue(o, ev.getDBR());
-				o.last_update = pev;
+				PValue pev = new PValue(this, ev.getDBR());
+				o.last_value = ev.getDBR();
+				o.last_time = pev.time;
 				o.notifyEvent(pev);
 			} catch (Exception e) {
 				Monitor.L.log(Level.WARNING, "Failed to translate/notify for "+o.chan.getName(), e);
