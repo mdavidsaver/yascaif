@@ -3,7 +3,7 @@
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.7"/>
     <property name="source" value="1.7"/>
-    <property name="ourver" value="0.4a"/>
+    <property name="ourver" value="0.5a"/>
 	<property name="jcaver" value="2.4.1"/>
 	<property name="junitver" value="4.11"/>
 	<property name="jcahash" value="df17d3c11f5f26649612df581aa1cd2920a8c614d4844a9df71e71fe9fd39435"/>
